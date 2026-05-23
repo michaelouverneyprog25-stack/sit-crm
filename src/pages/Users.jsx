@@ -4,7 +4,7 @@ import Toast from '../components/Toast'
 import LoadingOverlay from '../components/LoadingOverlay'
 import { validationRules } from '../config/validation'
 import { useAuth } from '../contexts/AuthContext'
-import { apiRequest, getStores } from '../firebase/db'
+import { apiRequest, getStores, getUsers } from '../firebase/db'
 import { CACHE_KEYS, readArrayCache, sortByName, writeArrayCache } from '../utils/browserCache'
 
 const USER_MANAGEMENT_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
@@ -53,7 +53,7 @@ export default function Users(){
     const hasCachedStores = stores.length > 0
 
     const [usersResult, storesResult] = await Promise.allSettled([
-      apiRequest('/api/users'),
+      getUsers(),
       getStores(),
     ])
 

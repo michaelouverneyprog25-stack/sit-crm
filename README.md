@@ -58,13 +58,15 @@ ADMIN_NAME="Admin" \
 npm run seed-admin
 ```
 
-Rodar o servidor Node de criação de usuários:
+Rodar o servidor Node/API em desenvolvimento:
 
 ```bash
 npm run server
 ```
 
-Por padrão, o backend sobe em `http://localhost:4100`.
+Por padrão, o backend local sobe na porta configurada pelo `PORT` ou em `4000`.
+O frontend só tenta `localhost:4100`/`localhost:4000` em modo desenvolvimento.
+Em produção, nunca use `localhost` em `VITE_API_URL`.
 
 Limpeza de dados duplicados:
 
@@ -137,7 +139,8 @@ npm test -- --run
 npm run build
 ```
 
-Em hospedagem, configure `VITE_API_URL` com a URL pública do backend.
+Em hospedagem/Vercel, configure `VITE_API_URL` somente com a URL pública do backend.
+Se não houver backend online, deixe `VITE_API_URL` vazia; os fluxos principais usam Firestore direto quando possível.
 
 4. Nos outros computadores/celulares da loja, acesse:
 
@@ -147,7 +150,8 @@ http://IP-DO-COMPUTADOR:5173
 
 Publicar para acessar pela internet:
 
-- O frontend precisa ser publicado com `VITE_API_URL` apontando para o endereço online do backend.
+- Se houver backend online, publique o frontend com `VITE_API_URL` apontando para o endereço público do backend.
+- Se não houver backend online, não configure `VITE_API_URL` com localhost. O frontend usa Firestore direto nos fluxos com fallback.
 - O backend precisa rodar em uma hospedagem Node com as variáveis `SERVICE_ACCOUNT_JSON` ou `GOOGLE_APPLICATION_CREDENTIALS`, `FIREBASE_PROJECT_ID` e `ALLOWED_ORIGINS`.
 - Use `ALLOWED_ORIGINS` com o domínio real do frontend, por exemplo:
 

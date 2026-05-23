@@ -37,29 +37,28 @@ if (typeof window !== 'undefined') {
   })
 }
 
-function getDefaultApiUrl() {
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    return `${window.location.protocol}//${window.location.hostname}:4100`
-  }
-
-  return 'http://localhost:4100'
-}
-
-const API_URL = (import.meta.env.VITE_API_URL || getDefaultApiUrl()).replace(/\/$/, '')
+const CONFIGURED_API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+const IS_DEV = import.meta.env.DEV
 
 function getApiUrls() {
   const urls = []
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const { protocol, hostname } = window.location
-    urls.push(`${protocol}//${hostname}:4100`)
-    urls.push(`${protocol}//${hostname}:4000`)
-  } else {
+
+  if (CONFIGURED_API_URL) {
+    urls.push(CONFIGURED_API_URL)
+  }
+
+  if (IS_DEV) {
     urls.push('http://localhost:4100')
     urls.push('http://localhost:4000')
   }
-  urls.unshift(API_URL)
 
   return [...new Set(urls.map((url) => url.replace(/\/$/, '')))]
+}
+
+function getApiUnavailableError() {
+  return new Error(IS_DEV
+    ? 'Backend local indisponível. Configure VITE_API_URL ou rode npm run server.'
+    : 'Backend não configurado em produção. Configure VITE_API_URL na Vercel ou use os fallbacks do Firestore.')
 }
 
 function waitForAuthUser() {
@@ -85,6 +84,11 @@ function waitForAuthUser() {
 }
 
 export async function apiRequest(path, options = {}) {
+  const apiUrls = getApiUrls()
+  if (!apiUrls.length) {
+    throw getApiUnavailableError()
+  }
+
   const headers = new Headers(options.headers || {})
   const user = auth.currentUser || await waitForAuthUser()
   const token = user ? await user.getIdToken() : ''
@@ -94,7 +98,7 @@ export async function apiRequest(path, options = {}) {
   }
 
   let lastError = null
-  for (const apiUrl of getApiUrls()) {
+  for (const apiUrl of apiUrls) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
     try {
@@ -156,6 +160,15 @@ function serializeClientDoc(docItem) {
   }
 }
 
+function serializeClientData(id, data = {}) {
+  return {
+    id,
+    ...data,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+    updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
+  }
+}
+
 function removeUndefinedFields(payload) {
   Object.keys(payload).forEach((key) => {
     if (payload[key] === undefined) delete payload[key]
@@ -173,6 +186,20 @@ export const ROLE_COMMISSION_RATES = {
 async function fetchCollection(queryRef) {
   const snap = await getDocs(queryRef)
   return snap.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() }))
+}
+
+function buildGenericConstraints(filter = {}) {
+  const constraints = []
+  Object.entries(filter).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') constraints.push(where(key, '==', value))
+  })
+  return constraints
+}
+
+async function getCollectionFromFirestore(collectionRef, filter = {}) {
+  const constraints = buildGenericConstraints(filter)
+  const snap = await getDocs(constraints.length ? query(collectionRef, ...constraints) : query(collectionRef))
+  return snap.docs.map(serializeClientDoc)
 }
 
 export async function getUserByEmail(email) {
@@ -208,11 +235,20 @@ async function buildSalePayload(data, includeTimestamp = true) {
 }
 
 export async function addVenda(data) {
-  return apiRequest('/api/vendas', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest('/api/vendas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para salvar venda. Salvando direto no Firestore.', apiError)
+    const payload = removeUndefinedFields(await buildSalePayload(data))
+    const ref = await addDoc(vendasCollection, payload)
+    await updateDoc(ref, { id: ref.id, updatedAt: serverTimestamp() })
+    const snap = await getDoc(ref)
+    return serializeClientDoc(snap)
+  }
 }
 
 export async function getVendas(filter = {}) {
@@ -221,21 +257,42 @@ export async function getVendas(filter = {}) {
     if (value !== undefined && value !== '') params.set(key, value)
   })
   const queryString = params.toString()
-  return apiRequest(`/api/vendas${queryString ? `?${queryString}` : ''}`)
+  try {
+    return await apiRequest(`/api/vendas${queryString ? `?${queryString}` : ''}`)
+  } catch (apiError) {
+    console.warn('API indisponível para carregar vendas. Tentando Firestore direto.', apiError)
+    const q = buildDateQuery(vendasCollection, filter)
+    return fetchCollection(q)
+  }
 }
 
 export async function updateVenda(id, data) {
-  return apiRequest(`/api/vendas/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest(`/api/vendas/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para atualizar venda. Atualizando Firestore direto.', apiError)
+    const ref = doc(db, 'vendas', id)
+    const payload = removeUndefinedFields(await buildSalePayload(data, false))
+    await updateDoc(ref, payload)
+    const snap = await getDoc(ref)
+    return serializeClientDoc(snap)
+  }
 }
 
 export async function deleteVenda(id) {
-  return apiRequest(`/api/vendas/${id}`, {
-    method: 'DELETE',
-  })
+  try {
+    return await apiRequest(`/api/vendas/${id}`, {
+      method: 'DELETE',
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para excluir venda. Excluindo Firestore direto.', apiError)
+    await deleteDoc(doc(db, 'vendas', id))
+    return { message: 'Venda excluída com sucesso' }
+  }
 }
 
 export async function addPortabilidade(data) {
@@ -344,23 +401,110 @@ export async function getGoalRankings(filter = {}) {
     if (value !== undefined && value !== '') params.set(key, value)
   })
   const queryString = params.toString()
-  return apiRequest(`/api/goal-rankings${queryString ? `?${queryString}` : ''}`)
+  try {
+    return await apiRequest(`/api/goal-rankings${queryString ? `?${queryString}` : ''}`)
+  } catch (apiError) {
+    console.warn('API indisponível para ranking de metas. Usando ranking vazio.', apiError)
+    return { sellers: [], stores: [], groups: [], ownPosition: null }
+  }
+}
+
+function getDistributedTarget(total, count, index) {
+  const target = Number(total || 0)
+  if (!count) return 0
+  const share = Number((target / count).toFixed(2))
+  if (index < count - 1) return share
+  return Number((target - (share * (count - 1))).toFixed(2))
+}
+
+function normalizeText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
 }
 
 export async function distributeStoreGoals(data) {
-  return apiRequest('/api/goals/distribute-store', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest('/api/goals/distribute-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para distribuir metas. Salvando distribuição direto no Firestore.', apiError)
+    const users = await getUsers()
+    const storeKey = normalizeText(data.storeName)
+    const sellers = users.filter((user) => {
+      const role = String(user.role || '')
+      const storeName = user.storeName || user.store || user.loja || ''
+      return !user.disabled && ['Vendedor', 'Executivo'].includes(role) && normalizeText(storeName) === storeKey
+    })
+    if (!sellers.length) throw new Error('Nenhum vendedor ativo encontrado nessa loja para distribuir as metas.')
+
+    const rows = Array.isArray(data.rows) ? data.rows : []
+    const writes = []
+    rows.forEach((row) => {
+      sellers.forEach((seller, index) => {
+        writes.push(addGoal({
+          ...row,
+          targetValue: getDistributedTarget(row.targetValue, sellers.length, index),
+          currentValue: 0,
+          userId: seller.uid || seller.id,
+          userName: seller.name || seller.email || 'Vendedor',
+          storeName: '',
+          groupName: '',
+          storeCity: seller.storeCity || data.storeCity || '',
+          storeState: seller.storeState || data.storeState || '',
+          month: Number(data.month),
+          year: Number(data.year),
+          skipApiSync: true,
+        }))
+      })
+      writes.push(addGoal({
+        ...row,
+        currentValue: Number(row.currentValue || 0),
+        userId: '',
+        userName: '',
+        storeName: data.storeName,
+        groupName: '',
+        storeCity: data.storeCity || '',
+        storeState: data.storeState || '',
+        month: Number(data.month),
+        year: Number(data.year),
+        skipApiSync: true,
+      }))
+    })
+    const goals = await Promise.all(writes)
+    return { message: 'Metas salvas no Firestore.', sellersCount: sellers.length, goalsCount: goals.length, goals }
+  }
 }
 
 export async function clearStoreGoalDistribution(data) {
-  return apiRequest('/api/goals/distribute-store/clear', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest('/api/goals/distribute-store/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para limpar distribuição. Limpando Firestore direto.', apiError)
+    const users = await getUsers()
+    const storeKey = normalizeText(data.storeName)
+    const sellerIds = new Set(users
+      .filter((user) => normalizeText(user.storeName || user.store || user.loja) === storeKey)
+      .map((user) => user.uid || user.id)
+      .filter(Boolean))
+    const goals = await getGoalsFromFirestore({ month: data.month, year: data.year })
+    const toDelete = goals.filter((goal) => {
+      const isStoreGoal = normalizeText(goal.storeName) === storeKey && !goal.userId && !goal.groupName
+      const isSellerGoal = sellerIds.has(goal.userId) && !goal.storeName && !goal.groupName
+      return isStoreGoal || isSellerGoal
+    })
+    await Promise.all(toDelete.map((goal) => deleteDoc(doc(db, 'goals', goal.id))))
+    return { message: `Distribuição limpa com sucesso. ${toDelete.length} metas removidas.`, removedCount: toDelete.length }
+  }
 }
 
 function buildGoalConstraints(filter = {}) {
@@ -435,9 +579,15 @@ export async function updateGoal(id, data) {
 }
 
 export async function deleteGoal(id) {
-  return apiRequest(`/api/goals/${id}`, {
-    method: 'DELETE',
-  })
+  try {
+    return await apiRequest(`/api/goals/${id}`, {
+      method: 'DELETE',
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para excluir meta. Excluindo Firestore direto.', apiError)
+    await deleteDoc(doc(db, 'goals', id))
+    return { message: 'Meta excluída com sucesso' }
+  }
 }
 
 export async function getCalendar(filter = {}) {
@@ -460,27 +610,51 @@ export async function getStores() {
 }
 
 export async function addStore(data) {
-  return apiRequest('/api/stores', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest('/api/stores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para salvar loja. Salvando Firestore direto.', apiError)
+    const payload = removeUndefinedFields({ ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+    const ref = await addDoc(storesCollection, payload)
+    await updateDoc(ref, { id: ref.id, updatedAt: serverTimestamp() })
+    const snap = await getDoc(ref)
+    return serializeClientDoc(snap)
+  }
 }
 
 export async function updateStore(id, data) {
-  return apiRequest(`/api/stores/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest(`/api/stores/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para atualizar loja. Atualizando Firestore direto.', apiError)
+    const ref = doc(db, 'stores', id)
+    const payload = removeUndefinedFields({ ...data, updatedAt: serverTimestamp() })
+    await updateDoc(ref, payload)
+    const snap = await getDoc(ref)
+    return serializeClientDoc(snap)
+  }
 }
 
 export async function deleteStore(id, data = {}) {
-  return apiRequest(`/api/stores/${id}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest(`/api/stores/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para excluir loja. Excluindo Firestore direto.', apiError)
+    await deleteDoc(doc(db, 'stores', id))
+    return { message: 'Loja excluída com sucesso' }
+  }
 }
 
 export async function getCommissionRules() {
@@ -494,27 +668,51 @@ export async function getCommissionRules() {
 }
 
 export async function addCommissionRule(data) {
-  return apiRequest('/api/commission-rules', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest('/api/commission-rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para salvar regra. Salvando Firestore direto.', apiError)
+    const payload = removeUndefinedFields({ ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+    const ref = await addDoc(commissionRulesCollection, payload)
+    await updateDoc(ref, { id: ref.id, updatedAt: serverTimestamp() })
+    const snap = await getDoc(ref)
+    return serializeClientDoc(snap)
+  }
 }
 
 export async function updateCommissionRule(id, data) {
-  return apiRequest(`/api/commission-rules/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest(`/api/commission-rules/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para atualizar regra. Atualizando Firestore direto.', apiError)
+    const ref = doc(db, 'commissionRules', id)
+    const payload = removeUndefinedFields({ ...data, updatedAt: serverTimestamp() })
+    await updateDoc(ref, payload)
+    const snap = await getDoc(ref)
+    return serializeClientDoc(snap)
+  }
 }
 
 export async function deleteCommissionRule(id, data = {}) {
-  return apiRequest(`/api/commission-rules/${id}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  try {
+    return await apiRequest(`/api/commission-rules/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  } catch (apiError) {
+    console.warn('API indisponível para excluir regra. Excluindo Firestore direto.', apiError)
+    await deleteDoc(doc(db, 'commissionRules', id))
+    return { message: 'Regra excluída com sucesso' }
+  }
 }
 
 export async function getUsers() {
