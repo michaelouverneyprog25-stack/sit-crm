@@ -46,6 +46,33 @@ service cloud.firestore {
       allow create, update, delete: if isSignedIn() && isAdmin();
     }
 
+    // Stores: used by goals, reports, user management, and fiber city selectors
+    match /stores/{storeId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && (isAdmin() || isManager());
+    }
+
+    // Fiber viability collections may vary by import/source name. Authenticated users can consult them.
+    match /fiberCoverage/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    match /fiberViability/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    match /fiberCoverageCities/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    match /cidadesFibra/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
     function isSignedIn() {
       return request.auth != null;
     }

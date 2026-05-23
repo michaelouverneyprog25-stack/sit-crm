@@ -75,7 +75,6 @@ export default function SaleList({ items, loading = false, onEdit, onDelete }) {
                 {s.dacc && <div className="text-sm text-gray-400">DACC: {s.dacc}</div>}
                 {(s.insurance || s.seguro) && <div className="text-sm text-gray-400">Seguro: {s.insurance || s.seguro}</div>}
                 {(s.insuranceValue !== '' && s.insuranceValue !== undefined) && <div className="text-sm text-gray-400">Valor do seguro: {formatCurrency(s.insuranceValue)}</div>}
-                {Number(s.dependentCount || s.dependents || 0) > 0 && <div className="text-sm text-gray-400">Dependentes: {Number(s.dependentCount || s.dependents || 0)}</div>}
                 {(s.userName || s.sellerName) && <div className="text-sm text-gray-400">Cadastrado por: {s.userName || s.sellerName}</div>}
                 {formatDate(s.createdAt) && <div className="text-sm text-gray-400">Criado em: {formatDate(s.createdAt)}</div>}
                 <div className="text-sm text-gray-400">Comissão vendedor: {formatCurrency(s.commission || 0)}</div>

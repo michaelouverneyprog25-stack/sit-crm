@@ -23,7 +23,6 @@ const PLAN_OPTIONS = [
   'Fibra 600MB',
   'Fibra 700MB',
   'Fibra 1GB',
-  'DEPENDENTE',
 ]
 
 const emptyForm = {
@@ -70,8 +69,8 @@ function parseCurrencyValue(value) {
   return Number.isFinite(parsed) ? parsed : ''
 }
 
-function isDependentPlan(plan) {
-  return plan === 'DEPENDENTE'
+function isPostpaidPlan(plan) {
+  return String(plan || '').toUpperCase().startsWith('BLACK')
 }
 
 export default function SaleForm({ initialData = null, onSave, onCancel, submitLabel = 'Salvar' }) {
@@ -151,7 +150,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
         fiberCancelReason: '',
         fiberRescheduledDate: '',
       } : {}),
-      ...(name === 'plan' && !isDependentPlan(value) ? { dependentCount: '' } : {}),
+      ...(name === 'plan' && !isPostpaidPlan(value) ? { dependentCount: '' } : {}),
     }))
   }
 
@@ -208,7 +207,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
     if (form.saleType === 'Fibra' && !form.fiberCity.trim()) nextErrors.fiberCity = 'Informe um CEP válido para preencher a cidade.'
     if (form.saleType === 'Fibra' && !form.fiberInstallationDate) nextErrors.fiberInstallationDate = 'Informe a data de instalação.'
     if (form.saleType === 'Fibra' && !form.fiberClientContact.trim()) nextErrors.fiberClientContact = 'Informe o contato do cliente.'
-    if (isDependentPlan(form.plan) && (!form.dependentCount || Number(form.dependentCount) <= 0)) nextErrors.dependentCount = 'Informe a quantidade de dependentes.'
+    if (isPostpaidPlan(form.plan) && form.dependentCount !== '' && Number(form.dependentCount) < 0) nextErrors.dependentCount = 'Informe uma quantidade válida de linhas adicionais.'
 
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
@@ -216,7 +215,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
     const parsedPlanValue = parseCurrencyValue(form.planValue)
     const parsedAccessoryValue = parseCurrencyValue(form.accessoryValue)
     const parsedInsuranceValue = parseCurrencyValue(form.insuranceValue)
-    const dependentCount = isDependentPlan(form.plan) ? Number(form.dependentCount) : 0
+    const dependentCount = isPostpaidPlan(form.plan) ? Number(form.dependentCount || 0) : 0
 
     onSave({
       ...form,
@@ -295,14 +294,14 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
           {errors.plan && <div className={errorClass}>{errors.plan}</div>}
         </>
       )}
-      {form.saleType !== 'Acessórios' && isDependentPlan(form.plan) && (
+      {form.saleType !== 'Acessórios' && isPostpaidPlan(form.plan) && (
         <>
           <input
             name="dependentCount"
             type="number"
-            min="1"
+            min="0"
             step="1"
-            placeholder="Quantidade de dependentes"
+            placeholder="Linhas adicionais do Pós"
             value={form.dependentCount}
             onChange={change}
             className={`${fieldClass} mb-2`}

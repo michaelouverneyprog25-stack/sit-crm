@@ -83,7 +83,6 @@ function getStoreField(sale, users, fieldName) {
 
 function getFields(users) {
   return [
-    { label: 'ID da venda', value: (sale) => sale.id || '' },
     { label: 'Data da venda', value: formatSaleDate },
     { label: 'Cliente', value: (sale) => sale.customer || '' },
     { label: 'CPF', value: (sale) => sale.cpf || '' },
@@ -91,14 +90,13 @@ function getFields(users) {
     { label: 'Acesso', value: (sale) => sale.access || '' },
     { label: 'Plano', value: (sale) => sale.plan || '' },
     { label: 'Valor do plano', value: (sale) => formatCurrency(firstFilled(sale.planValue, sale.amount)), excelValue: (sale) => numberOrBlank(firstFilled(sale.planValue, sale.amount)) },
-    { label: 'Valor final/receita', value: (sale) => formatCurrency(getSaleRevenueValue(sale)), excelValue: (sale) => numberOrBlank(getSaleRevenueValue(sale)) },
+    { label: 'Receita', value: (sale) => formatCurrency(getSaleRevenueValue(sale)), excelValue: (sale) => numberOrBlank(getSaleRevenueValue(sale)) },
     { label: 'DACC', value: (sale) => sale.dacc || '' },
     { label: 'Seguro', value: (sale) => sale.insurance || sale.seguro || '' },
     { label: 'Valor do seguro', value: (sale) => formatCurrency(sale.insuranceValue ?? sale.seguroValue), excelValue: (sale) => numberOrBlank(sale.insuranceValue ?? sale.seguroValue) },
     { label: 'Esteira', value: (sale) => sale.status || '' },
     { label: 'Numero provisorio', value: (sale) => sale.provisionalNumber || '' },
     { label: 'Plano anterior', value: (sale) => sale.previousPlan || '' },
-    { label: 'Dependentes', value: (sale) => String(Number(sale.dependentCount ?? sale.dependents ?? 0) || 0), excelValue: (sale) => Number(sale.dependentCount ?? sale.dependents ?? 0) || 0 },
     { label: 'Modelo do aparelho', value: (sale) => sale.deviceModel || '' },
     { label: 'Valor do aparelho', value: (sale) => formatCurrency(sale.deviceValue), excelValue: (sale) => numberOrBlank(sale.deviceValue) },
     { label: 'IMEI', value: (sale) => sale.imei || '' },
@@ -107,15 +105,11 @@ function getFields(users) {
     { label: 'Cidade da loja', value: (sale) => getStoreField(sale, users, 'city') },
     { label: 'UF da loja', value: (sale) => getStoreField(sale, users, 'state') },
     { label: 'Vendedor', value: (sale) => getSellerName(sale, users) },
-    { label: 'Email do vendedor', value: (sale) => getSellerEmail(sale, users) },
-    { label: 'ID do usuario', value: (sale) => sale.userId || '' },
     { label: 'Nome do usuario logado', value: (sale) => sale.userName || getSellerName(sale, users) },
     { label: 'Email do usuario logado', value: (sale) => sale.userEmail || sale.seller || getSellerEmail(sale, users) },
     { label: 'Comissao vendedor', value: (sale) => formatCurrency(sale.commission), excelValue: (sale) => numberOrBlank(sale.commission) },
     { label: 'Comissao upgrade', value: (sale) => formatCurrency(sale.commissionDetails?.upgrade?.amount), excelValue: (sale) => numberOrBlank(sale.commissionDetails?.upgrade?.amount) },
     { label: 'Comissao seguro', value: (sale) => formatCurrency(sale.commissionDetails?.insurance?.amount), excelValue: (sale) => numberOrBlank(sale.commissionDetails?.insurance?.amount) },
-    { label: 'Regra upgrade', value: (sale) => sale.commissionDetails?.upgrade?.ruleId || '' },
-    { label: 'Categoria upgrade', value: (sale) => sale.commissionDetails?.upgrade?.category || '' },
     { label: 'Comissao loja', value: (sale) => formatCurrency(sale.storeCommission), excelValue: (sale) => numberOrBlank(sale.storeCommission) },
     { label: 'Percentual comissao', value: (sale) => sale.commissionRate ? `${Number(sale.commissionRate * 100).toFixed(2)}%` : '', excelValue: (sale) => numberOrBlank(sale.commissionRate) },
     { label: 'Criado em', value: (sale) => formatDateTime(sale.createdAt) },
@@ -313,7 +307,7 @@ export default function AllSalesReport() {
           {loading && <div className="text-sm text-gray-400 mt-1">Carregando vendas...</div>}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[2400px] border-collapse text-sm">
+          <table className="w-full min-w-[1900px] border-collapse text-sm">
             <thead className="bg-gray-900 text-left text-gray-300">
               <tr>
                 {fields.map((field) => (

@@ -14,7 +14,6 @@ const SERVICES = [
   'Seguros',
   'DACC',
   'Portabilidade',
-  'Dependentes',
 ]
 const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros'])
 const RANKING_GOAL_TYPES = new Set(SERVICES)
@@ -168,7 +167,7 @@ function getSaleGoalValue(sale, type) {
     case 'Controle':
       return planStartsWith(sale, 'CONTROLE') ? 1 : 0
     case 'Pós':
-      return planStartsWith(sale, 'BLACK') ? 1 : 0
+      return planStartsWith(sale, 'BLACK') ? 1 + getDependentCount(sale) : 0
     case 'Upgrade':
       return sale.saleType === 'Upgrade' ? 1 : 0
     case 'Portabilidade':
@@ -183,8 +182,6 @@ function getSaleGoalValue(sale, type) {
       return sale.payJoy === 'Sim' || sale.payjoy === 'Sim' || normalize(sale.saleType).includes('payjoy') ? amount : 0
     case 'Seguros':
       return sale.insurance === 'Sim' || sale.seguro === 'Sim' || normalize(sale.saleType).includes('seguro') ? getInsuranceValue(sale) : 0
-    case 'Dependentes':
-      return getDependentCount(sale)
     default:
       return 0
   }

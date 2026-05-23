@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { apiRequest } from '../firebase/db'
+import { getFiberViabilityCities, searchFiberViability } from '../firebase/db'
 
 const emptyFilters = {
   city: '',
@@ -40,12 +40,16 @@ export default function FiberViability() {
   useEffect(() => {
     let active = true
     setLoadingCities(true)
-    apiRequest('/api/fiber-viability/cities')
+    getFiberViabilityCities()
       .then((data) => {
         if (active) setCities(Array.isArray(data) ? data : [])
       })
       .catch((err) => {
         console.error('Erro ao carregar cidades da base de fibra:', err)
+        if (active) {
+          setCities([])
+          setError('Não foi possível carregar as cidades cadastradas de fibra.')
+        }
       })
       .finally(() => {
         if (active) setLoadingCities(false)
@@ -77,13 +81,7 @@ export default function FiberViability() {
 
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      Object.entries(filters).forEach(([key, value]) => {
-        if (String(value || '').trim()) params.set(key, value.trim())
-      })
-      params.set('limit', '150')
-
-      const data = await apiRequest(`/api/fiber-viability?${params.toString()}`)
+      const data = await searchFiberViability(filters)
       setResult(data)
     } catch (err) {
       console.error('Erro ao consultar viabilidade:', err)

@@ -28,6 +28,12 @@ const goalsCollection = collection(db, 'goals')
 const usersCollection = collection(db, 'users')
 const storesCollection = collection(db, 'stores')
 const commissionRulesCollection = collection(db, 'commissionRules')
+const fiberCoverageCollections = [
+  'fiberCoverage',
+  'fiberViability',
+  'fiberCoverageCities',
+  'cidadesFibra',
+]
 
 if (typeof window !== 'undefined') {
   enableIndexedDbPersistence(db).catch((error) => {
@@ -423,6 +429,125 @@ function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
+}
+
+function onlyDigits(value) {
+  return String(value || '').replace(/\D/g, '')
+}
+
+function getFiberCityFromDoc(data = {}) {
+  return data.city || data.cidade || data.municipio || data.MUNICIPIO || ''
+}
+
+function getFiberUfFromDoc(data = {}) {
+  return data.uf || data.UF || data.state || data.estado || ''
+}
+
+function serializeFiberRow(docItem) {
+  const data = docItem.data ? docItem.data() : docItem
+  return {
+    id: docItem.id || data.id || '',
+    referenceDate: data.referenceDate || data.DT_REF || '',
+    uf: getFiberUfFromDoc(data),
+    city: getFiberCityFromDoc(data),
+    cep: data.cep || data.CEP || '',
+    street: data.street || data.rua || data.logradouro || data.LOGRADOURO || '',
+    number: data.number || data.numero || data.numLogradouro || data.NUM_LOGRADOURO || '',
+    complement: data.complement || data.complemento || data.COMPLEMENTO || '',
+    neighborhood: data.neighborhood || data.bairro || data.BAIRRO || '',
+    households: Number(data.households ?? data.QTD_HH ?? 0) || 0,
+    latitude: data.latitude || data.LATITUDE || '',
+    longitude: data.longitude || data.LONGITUDE || '',
+    viabilityCode: data.viabilityCode || data.viabilidade || data.VIABILIDADE || '',
+    viability: data.viability || data.motivo || data.MOTIVO || '',
+    lotType: data.lotType || data.TIPO_LOTE || '',
+    infraProvider: data.infraProvider || data.INFRACO_PRINCIPAL || '',
+    olt: data.olt || data.OLT || '',
+    oltSegmentation: data.oltSegmentation || data.SEGMENTACAO_OLT || '',
+    capacityBlocked: data.capacityBlocked || data.BLOQ_CAPACITY || '',
+    capacityReason: data.capacityReason || data.MOTIVO_CAPACITY || '',
+  }
+}
+
+function buildFiberCities(rows = []) {
+  const byKey = new Map()
+  rows.forEach((row) => {
+    const city = getFiberCityFromDoc(row)
+    const uf = getFiberUfFromDoc(row)
+    const key = `${normalizeText(city)}|${normalizeText(uf)}`
+    if (!city || byKey.has(key)) return
+    byKey.set(key, {
+      city,
+      uf,
+      label: uf ? `${city} / ${uf}` : city,
+    })
+  })
+  return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+}
+
+function fiberRowMatches(row, filters = {}) {
+  if (filters.city && !normalizeText(row.city).includes(normalizeText(filters.city))) return false
+  if (filters.cep && !onlyDigits(row.cep).startsWith(onlyDigits(filters.cep))) return false
+  if (filters.street && !normalizeText(row.street).includes(normalizeText(filters.street))) return false
+  if (filters.number && onlyDigits(row.number) !== onlyDigits(filters.number)) return false
+  if (filters.neighborhood && !normalizeText(row.neighborhood).includes(normalizeText(filters.neighborhood))) return false
+  return true
+}
+
+async function getFiberRowsFromFirestore() {
+  for (const collectionName of fiberCoverageCollections) {
+    try {
+      const snap = await getDocs(collection(db, collectionName))
+      if (!snap.empty) {
+        return snap.docs.map(serializeFiberRow)
+      }
+    } catch (error) {
+      console.warn(`Não foi possível ler ${collectionName} no Firestore.`, error)
+    }
+  }
+  return []
+}
+
+export async function getFiberViabilityCities() {
+  try {
+    const data = await apiRequest('/api/fiber-viability/cities')
+    if (Array.isArray(data) && data.length) return data
+  } catch (apiError) {
+    console.warn('Não foi possível carregar cidades de fibra pela API. Tentando Firestore.', apiError)
+  }
+
+  const coverageRows = await getFiberRowsFromFirestore()
+  const coverageCities = buildFiberCities(coverageRows)
+  if (coverageCities.length) return coverageCities
+
+  const stores = await getStores()
+  return buildFiberCities(stores.map((store) => ({
+    city: store.city || store.storeCity || store.cidade,
+    uf: store.state || store.storeState || store.uf || store.estado,
+  })))
+}
+
+export async function searchFiberViability(filters = {}) {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (String(value || '').trim()) params.set(key, String(value).trim())
+  })
+  params.set('limit', '150')
+
+  try {
+    return await apiRequest(`/api/fiber-viability?${params.toString()}`)
+  } catch (apiError) {
+    console.warn('Não foi possível consultar viabilidade pela API. Tentando Firestore.', apiError)
+  }
+
+  const rows = (await getFiberRowsFromFirestore()).filter((row) => fiberRowMatches(row, filters))
+  return {
+    rows: rows.slice(0, 150),
+    totalMatches: rows.length,
+    scannedRows: rows.length,
+    limit: 150,
+    elapsedMs: 0,
+  }
 }
 
 export async function distributeStoreGoals(data) {

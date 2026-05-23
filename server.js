@@ -75,7 +75,6 @@ const GOAL_TYPES = [
   'Seguros',
   'Portabilidade',
   'DACC',
-  'Dependentes',
 ]
 const SALE_SYNCED_GOAL_TYPES = new Set(GOAL_TYPES)
 const COMMISSION_SUBCATEGORIES = ['Receita', 'Upgrade', 'Aparelhos', 'Acessórios', 'Portabilidade', 'Seguros']
@@ -1468,7 +1467,7 @@ function getSaleGoalValue(sale, type) {
       return planStartsWith(sale, 'CONTROLE') ? 1 : 0
     case 'Pós':
     case 'Planos Pós':
-      return planStartsWith(sale, 'BLACK') ? 1 : 0
+      return planStartsWith(sale, 'BLACK') ? 1 + getDependentCount(sale) : 0
     case 'Upgrade':
       return sale.saleType === 'Upgrade' ? 1 : 0
     case 'Portabilidade':
@@ -1483,8 +1482,6 @@ function getSaleGoalValue(sale, type) {
       return sale.payJoy === 'Sim' || sale.payjoy === 'Sim' || includesText(sale.saleType, 'PayJoy') ? amount : 0
     case 'Seguros':
       return sale.insurance === 'Sim' || sale.seguro === 'Sim' || includesText(sale.saleType, 'Seguro') ? getInsuranceValue(sale) : 0
-    case 'Dependentes':
-      return getDependentCount(sale)
     default:
       return 0
   }
@@ -1767,7 +1764,7 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
   const accessoryCommission = roundMoney(accessoryValue * accessoryRate)
   const sellerDeviceCommission = roundMoney(deviceValue * sellerDeviceRate)
   const storeDeviceCommission = roundMoney(deviceValue * storeDeviceRate)
-  const dependentCommission = roundMoney(dependentCount * 5)
+  const dependentCommission = isDependentSale(sale) ? roundMoney(dependentCount * 5) : 0
   const upgradeCommission = upgradeRule ? roundMoney(upgradeRule.valorComissao) : 0
   const insuranceCommission = getSaleGoalValue(sale, 'Seguros') > 0 ? roundMoney(insuranceValue * insuranceRate) : 0
 

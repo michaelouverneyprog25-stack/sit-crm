@@ -14,7 +14,6 @@ const SERVICES = [
   'Seguros',
   'DACC',
   'Portabilidade',
-  'Dependentes',
 ]
 const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros'])
 const SELLER_GOAL_ROLES = ['Vendedor', 'Executivo']
