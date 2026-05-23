@@ -798,7 +798,7 @@ export default function Goals() {
           </div>
         </div>
 
-        <div className="grid gap-4 p-5 lg:grid-cols-[1.5fr_1fr]">
+        <div className="grid gap-4 p-5 xl:grid-cols-[1.4fr_1fr]">
           <div className="rounded-lg border border-white/10 bg-slate-900/70 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
@@ -876,36 +876,27 @@ export default function Goals() {
           </div>
 
           <div className="rounded-lg border border-white/10 bg-slate-900/70 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm text-slate-400">Seleção atual</p>
-                <h2 className="mt-1 break-words text-lg font-semibold text-white md:text-xl">{selectedScopeLabel}</h2>
-              </div>
-              <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100">
-                Tempo real
-              </span>
+            <div>
+              <p className="text-sm text-slate-400">Resumo do período</p>
+              <h2 className="mt-1 break-words text-lg font-semibold text-white md:text-xl">{selectedScopeLabel}</h2>
             </div>
-            <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between text-sm text-slate-300">
-                <span>Atingimento geral</span>
-                <span>{formatPercent(totalProgress)}</span>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <div className="min-w-0 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3">
+                <div className="flex items-center justify-between gap-3 text-sm text-cyan-50">
+                  <span>Atingimento</span>
+                  <span className="font-semibold">{formatPercent(totalProgress)}</span>
+                </div>
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-800">
+                  <div className="h-full rounded-full bg-cyan-300 transition-all" style={{ width: `${Math.min(100, totalProgress)}%` }} />
+                </div>
               </div>
-              <div className="h-3 overflow-hidden rounded-full bg-slate-800">
-                <div className="h-full rounded-full bg-cyan-300 transition-all" style={{ width: `${Math.min(100, totalProgress)}%` }} />
+              <div className="min-w-0 rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="text-sm text-slate-400">Meta</p>
+                <p className="mt-1 break-words text-lg font-semibold text-white">{formatValue(totals.target)}</p>
               </div>
-            </div>
-            <div className="mt-5 grid gap-2 text-sm sm:grid-cols-3">
-              <div className="min-w-0 rounded-md bg-white/5 p-3">
-                <p className="text-slate-400">Meta</p>
-                <p className="mt-1 break-words font-semibold text-white">{formatValue(totals.target)}</p>
-              </div>
-              <div className="min-w-0 rounded-md bg-white/5 p-3">
-                <p className="text-slate-400">Realizado</p>
-                <p className="mt-1 break-words font-semibold text-white">{formatValue(totals.current)}</p>
-              </div>
-              <div className="min-w-0 rounded-md bg-white/5 p-3">
-                <p className="text-slate-400">Gap</p>
-                <p className="mt-1 break-words font-semibold text-white">{formatValue(totals.gap)}</p>
+              <div className="min-w-0 rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="text-sm text-slate-400">Realizado / Gap</p>
+                <p className="mt-1 break-words text-lg font-semibold text-white">{formatValue(totals.current)} / {formatValue(totals.gap)}</p>
               </div>
             </div>
           </div>

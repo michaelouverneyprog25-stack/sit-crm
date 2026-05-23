@@ -1083,6 +1083,10 @@ function canManageUsers(role) {
   return USER_MANAGEMENT_ROLES.includes(normalizeRole(role))
 }
 
+function canChangeUserAccess(role) {
+  return ['Administrador', 'Gestor Master'].includes(normalizeRole(role))
+}
+
 function canViewAllSales(role) {
   return SALES_FULL_ACCESS_ROLES.includes(normalizeRole(role))
 }
@@ -1471,7 +1475,7 @@ function getSaleGoalValue(sale, type) {
     case 'Upgrade':
       return sale.saleType === 'Upgrade' ? 1 : 0
     case 'Portabilidade':
-      return sale.saleType === 'Portabilidade' ? 1 : 0
+      return hasPortability(sale) ? 1 : 0
     case 'DACC':
       return sale.dacc === 'Sim' ? 1 : 0
     case 'Fibra':
@@ -1485,6 +1489,14 @@ function getSaleGoalValue(sale, type) {
     default:
       return 0
   }
+}
+
+function hasPortability(sale) {
+  return sale.saleType === 'Portabilidade'
+    || includesText(sale.saleType, 'Portabilidade')
+    || includesText(sale.portability, 'Sim')
+    || includesText(sale.portabilidade, 'Sim')
+    || Boolean(String(sale.provisionalNumber || '').trim())
 }
 
 async function getUsersIndex() {
@@ -1753,14 +1765,14 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
   const storeDeviceGoal = getGoalForSale(sale, 'Aparelhos', usersIndex, goalIndexes, 'store')
   const isUpgradeSale = sale.saleType === 'Upgrade'
 
-  const revenueRate = getCommissionPercent(revenueRule, isGoalHit(revenueGoal))
+  const revenueRate = isGoalHit(revenueGoal) ? 0.10 : 0.05
   const accessoryRate = getCommissionPercent(accessoryRule, isGoalHit(accessoryGoal))
   const insuranceRate = getCommissionPercent(insuranceRule, isGoalHit(insuranceGoal))
   const sellerDeviceRate = getCommissionPercent(deviceRule, false)
   const storeDeviceRate = getStoreCommissionPercent(deviceRule, isGoalHit(storeDeviceGoal))
 
   const revenueCommission = isUpgradeSale ? 0 : roundMoney(revenueAmount * revenueRate)
-  const portabilityCommission = sale.saleType === 'Portabilidade' ? getFixedCommissionValue(portabilityRule) : 0
+  const portabilityCommission = hasPortability(sale) ? (getFixedCommissionValue(portabilityRule) || 2) : 0
   const accessoryCommission = roundMoney(accessoryValue * accessoryRate)
   const sellerDeviceCommission = roundMoney(deviceValue * sellerDeviceRate)
   const storeDeviceCommission = roundMoney(deviceValue * storeDeviceRate)
@@ -1791,7 +1803,7 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
         amount: revenueCommission,
       },
       portability: {
-        count: sale.saleType === 'Portabilidade' ? 1 : 0,
+        count: hasPortability(sale) ? 1 : 0,
         ruleId: portabilityRule?.id || '',
         amount: portabilityCommission,
       },
@@ -2322,6 +2334,33 @@ function getLocalSellersForStore(storeName) {
     .filter((user) => !user.disabled && ['Vendedor', 'Executivo'].includes(normalizeRole(user.role)))
     .filter((user) => normalizeText(user.storeName || user.store || user.loja) === storeKey)
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
+}
+
+async function getSellersForStore(storeName) {
+  const storeKey = normalizeText(storeName)
+  if (!storeKey) return []
+  const byId = new Map()
+  getLocalSellersForStore(storeName).forEach((seller) => {
+    byId.set(seller.uid || seller.id || seller.email, seller)
+  })
+
+  if (!isFirestoreQuotaPaused()) {
+    try {
+      const snap = await db.collection('users').get()
+      snap.docs
+        .map((docSnap) => buildCachedUserProfile({ id: docSnap.id, ...docSnap.data() }))
+        .filter((user) => !user.disabled && ['Vendedor', 'Executivo'].includes(normalizeRole(user.role)))
+        .filter((user) => normalizeText(user.storeName || user.store || user.loja) === storeKey)
+        .forEach((seller) => {
+          byId.set(seller.uid || seller.id || seller.email, seller)
+        })
+    } catch (error) {
+      rememberQuotaError(error)
+      console.warn('Não foi possível carregar vendedores da loja pelo Firestore. Usando cache local.', error.message || error)
+    }
+  }
+
+  return [...byId.values()].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
 }
 
 function getStableGoalId(parts = []) {
@@ -3086,7 +3125,7 @@ app.post('/api/goals/distribute-store', async (req, res) => {
       return res.status(400).json({ message: 'Nenhum tipo de meta válido para distribuir.' })
     }
 
-    const sellers = getLocalSellersForStore(storeName)
+    const sellers = await getSellersForStore(storeName)
     if (!sellers.length) {
       return res.status(400).json({ message: 'Nenhum vendedor ativo encontrado nessa loja para distribuir as metas.' })
     }
@@ -3233,7 +3272,7 @@ app.post('/api/goals/distribute-store/clear', async (req, res) => {
       return res.status(403).json({ message: 'Sem permissão para limpar metas desta loja.' })
     }
 
-    const sellers = getLocalSellersForStore(storeName)
+    const sellers = await getSellersForStore(storeName)
     const sellerIds = new Set(sellers.map((seller) => seller.uid || seller.id).filter(Boolean))
     const goals = getLocalGoals({ includeDeleted: true })
     const goalsToRemove = goals.filter((goal) => {
@@ -4056,95 +4095,129 @@ app.post('/api/users/:uid/reset-password', async (req, res) => {
 app.delete('/api/users/:uid', async (req, res) => {
   try {
     const { uid } = req.params
-    if (!canManageUsers(req.body.actorRole)) {
-      return res.status(403).json({ message: 'Sem permissão para desativar usuários.' })
+    if (!canChangeUserAccess(req.body.actorRole)) {
+      return res.status(403).json({ message: 'Sem permissão para inativar usuários.' })
     }
 
-    await admin.auth().updateUser(uid, { disabled: true })
-    upsertLocalUserProfile({ uid, disabled: true })
+    if (uid === req.currentUser?.uid) {
+      return res.status(400).json({ message: 'Você não pode inativar o próprio usuário.' })
+    }
+
+    let profileData = getLocalUserProfilesMap().get(uid) || {}
+    if (!isFirestoreQuotaPaused()) {
+      try {
+        const profile = await db.collection('users').doc(uid).get()
+        profileData = profile.exists ? profile.data() : profileData
+      } catch (error) {
+        rememberQuotaError(error)
+        console.warn('Não foi possível carregar perfil antes de inativar. Usando cache local.', error.message || error)
+      }
+    }
+    if (normalizeRole(profileData.role) === 'Administrador') {
+      return res.status(403).json({ message: 'Não é permitido inativar usuário administrador.' })
+    }
+
+    await admin.auth().updateUser(uid, { disabled: true }).catch((error) => {
+      console.warn('Não foi possível desativar no Firebase Auth. Perfil será inativado no CRM.', error.message || error)
+    })
+    upsertLocalUserProfile({ uid, disabled: true, accessRemoved: true })
     authProfileCache.delete(uid)
     clearAuthUsersCache()
     if (!isFirestoreQuotaPaused()) {
       try {
-        await db.collection('users').doc(uid).update({ disabled: true })
+        await db.collection('users').doc(uid).set({
+          disabled: true,
+          accessRemoved: true,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true })
       } catch (error) {
         if (!rememberQuotaError(error)) throw error
-        console.warn('Usuário desativado apenas localmente/Auth porque a cota do Firestore foi excedida.', error.message || error)
+        console.warn('Usuário inativado apenas localmente porque a cota do Firestore foi excedida.', error.message || error)
       }
     }
-    res.status(200).json({ message: 'User disabled successfully' })
+    res.status(200).json({ message: 'Usuário removido/inativado com sucesso' })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: error.message })
+    res.status(500).json({ message: 'Não foi possível remover/inativar o usuário.' })
   }
 })
 
 app.delete('/api/users/:uid/permanent', async (req, res) => {
   try {
     const { uid } = req.params
-    if (!canManageUsers(req.body.actorRole)) {
-      return res.status(403).json({ message: 'Sem permissão para excluir usuários.' })
+    if (!canChangeUserAccess(req.body.actorRole)) {
+      return res.status(403).json({ message: 'Sem permissão para inativar usuários.' })
     }
 
-    const authUser = await admin.auth().getUser(uid)
+    if (uid === req.currentUser?.uid) {
+      return res.status(400).json({ message: 'Você não pode inativar o próprio usuário.' })
+    }
+
     let profileData = getLocalUserProfilesMap().get(uid) || {}
-    const userRef = db.collection('users').doc(uid)
     if (!isFirestoreQuotaPaused()) {
       try {
-        const profile = await userRef.get()
+        const profile = await db.collection('users').doc(uid).get()
         profileData = profile.exists ? profile.data() : profileData
       } catch (error) {
         rememberQuotaError(error)
-        console.warn('Não foi possível carregar perfil do Firestore antes de excluir. Usando Auth/cache local.', error.message || error)
+        console.warn('Não foi possível carregar perfil antes de inativar. Usando cache local.', error.message || error)
       }
     }
-    const role = normalizeRole(profileData.role || authUser.customClaims?.role)
-
-    if (role === 'Administrador') {
-      return res.status(403).json({ message: 'Não é permitido excluir usuário administrador.' })
+    if (normalizeRole(profileData.role) === 'Administrador') {
+      return res.status(403).json({ message: 'Não é permitido inativar usuário administrador.' })
     }
 
-    await admin.auth().deleteUser(uid)
-    const profiles = getLocalUserProfilesMap()
-    profiles.delete(uid)
-    saveLocalUserProfiles(profiles)
+    await admin.auth().updateUser(uid, { disabled: true }).catch((error) => {
+      console.warn('Não foi possível desativar no Firebase Auth. Perfil será inativado no CRM.', error.message || error)
+    })
+    upsertLocalUserProfile({ uid, disabled: true, accessRemoved: true })
     authProfileCache.delete(uid)
     clearAuthUsersCache()
     if (!isFirestoreQuotaPaused()) {
       try {
-        await userRef.delete()
+        await db.collection('users').doc(uid).set({
+          disabled: true,
+          accessRemoved: true,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true })
       } catch (error) {
         if (!rememberQuotaError(error)) throw error
-        console.warn('Usuário excluído do Auth/cache local. Firestore será limpo quando a cota liberar.', error.message || error)
+        console.warn('Usuário inativado apenas localmente porque a cota do Firestore foi excedida.', error.message || error)
       }
     }
-    res.status(200).json({ message: 'Usuário excluído com sucesso' })
+    res.status(200).json({ message: 'Usuário removido/inativado com sucesso' })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: error.message })
+    res.status(500).json({ message: 'Não foi possível remover/inativar o usuário.' })
   }
 })
 
 app.post('/api/users/:uid/enable', async (req, res) => {
   try {
     const { uid } = req.params
-    if (!canManageUsers(req.body.actorRole)) {
+    if (!canChangeUserAccess(req.body.actorRole)) {
       return res.status(403).json({ message: 'Sem permissão para reativar usuários.' })
     }
 
-    await admin.auth().updateUser(uid, { disabled: false })
-    upsertLocalUserProfile({ uid, disabled: false })
+    await admin.auth().updateUser(uid, { disabled: false }).catch((error) => {
+      console.warn('Não foi possível reativar no Firebase Auth. Perfil será reativado no CRM.', error.message || error)
+    })
+    upsertLocalUserProfile({ uid, disabled: false, accessRemoved: false })
     authProfileCache.delete(uid)
     clearAuthUsersCache()
     if (!isFirestoreQuotaPaused()) {
       try {
-        await db.collection('users').doc(uid).update({ disabled: false })
+        await db.collection('users').doc(uid).set({
+          disabled: false,
+          accessRemoved: false,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true })
       } catch (error) {
         if (!rememberQuotaError(error)) throw error
         console.warn('Usuário reativado apenas localmente/Auth porque a cota do Firestore foi excedida.', error.message || error)
       }
     }
-    res.status(200).json({ message: 'User enabled successfully' })
+    res.status(200).json({ message: 'Usuário reativado com sucesso' })
   } catch (error) {
     console.error(error)
     res.status(500).json({ message: error.message })

@@ -46,7 +46,11 @@ function formatGoalValue(type, value) {
 }
 
 function normalize(value) {
-  return String(value || '').trim().toLowerCase()
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
 }
 
 function getDateValue(date) {
@@ -82,6 +86,10 @@ function getUserForSale(sale, users) {
 function getSaleStoreName(sale, users) {
   const user = getUserForSale(sale, users)
   return sale.storeName || user?.storeName || user?.store || user?.loja || ''
+}
+
+function getCanonicalStoreName(name, storeMap) {
+  return storeMap.get(normalize(name)) || name || ''
 }
 
 function getSellerName(sale, users) {
@@ -120,11 +128,19 @@ export default function Reports() {
   }, [])
 
   const storeOptions = useMemo(() => {
-    const fromStores = stores.map((store) => store.name).filter(Boolean)
-    const fromUsers = users.map((user) => user.storeName || user.store || user.loja).filter(Boolean)
-    const fromSales = sales.map((sale) => getSaleStoreName(sale, users)).filter(Boolean)
-    return [...new Set([...fromStores, ...fromUsers, ...fromSales])].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    const byName = new Map()
+    const addStore = (name) => {
+      const key = normalize(name)
+      if (key && !byName.has(key)) byName.set(key, name)
+    }
+    stores.forEach((store) => addStore(store.name || store.storeName || store.loja))
+    users.forEach((user) => addStore(user.storeName || user.store || user.loja))
+    sales.forEach((sale) => addStore(getSaleStoreName(sale, users)))
+    return [...byName.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'))
   }, [sales, stores, users])
+  const storeNameMap = useMemo(() => {
+    return new Map(storeOptions.map((store) => [normalize(store), store]))
+  }, [storeOptions])
 
   const sellerOptions = useMemo(() => {
     const byKey = new Map()
@@ -174,7 +190,7 @@ export default function Reports() {
 
     return sales.filter((sale) => {
       if (filters.scope === 'store') {
-        return normalize(getSaleStoreName(sale, users)) === normalize(filters.storeName)
+        return normalize(getCanonicalStoreName(getSaleStoreName(sale, users), storeNameMap)) === normalize(filters.storeName)
       }
 
       if (filters.scope === 'group') {
@@ -189,14 +205,14 @@ export default function Reports() {
 
       return false
     })
-  }, [filters.scope, filters.storeName, hasSelection, sales, selectedSeller, users])
+  }, [filters.scope, filters.storeName, hasSelection, sales, selectedSeller, storeNameMap, users])
 
   const filteredMetas = useMemo(() => {
     if (!hasSelection) return []
 
     return metas.filter((meta) => {
       if (filters.scope === 'store') {
-        return normalize(meta.storeName) === normalize(filters.storeName)
+        return normalize(getCanonicalStoreName(meta.storeName, storeNameMap)) === normalize(filters.storeName)
       }
 
       if (filters.scope === 'group') {
@@ -210,7 +226,7 @@ export default function Reports() {
 
       return false
     })
-  }, [filters.scope, filters.storeName, hasSelection, metas, selectedSeller])
+  }, [filters.scope, filters.storeName, hasSelection, metas, selectedSeller, storeNameMap])
 
   const summary = useMemo(() => {
     const revenue = filteredSales.reduce((acc, sale) => acc + getSaleRevenueValue(sale), 0)

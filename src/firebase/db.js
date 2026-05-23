@@ -32,7 +32,9 @@ const fiberCoverageCollections = [
   'fiberCoverage',
   'fiberViability',
   'fiberCoverageCities',
+  'fiberCities',
   'cidadesFibra',
+  'viabilidadeFibra',
 ]
 
 if (typeof window !== 'undefined') {
@@ -221,16 +223,38 @@ export function getCommissionRate(role) {
   return ROLE_COMMISSION_RATES[role] ?? 0.05
 }
 
+function hasPortability(data = {}) {
+  return data.saleType === 'Portabilidade'
+    || normalizeText(data.saleType).includes('portabilidade')
+    || normalizeText(data.portability) === 'sim'
+    || normalizeText(data.portabilidade) === 'sim'
+    || Boolean(String(data.provisionalNumber || '').trim())
+}
+
 async function buildSalePayload(data, includeTimestamp = true) {
   const amount = Number(data.amount || 0)
-  const sellerEmail = data.seller || ''
-  const user = await getUserByEmail(sellerEmail)
-  const commissionRate = getCommissionRate(user?.role)
+  const planValue = data.saleType === 'Upgrade'
+    ? 0
+    : Number(data.planValue !== undefined && data.planValue !== '' ? data.planValue : amount)
+  const commissionRate = data.saleType === 'Upgrade' ? 0 : 0.05
+  const portabilityCommission = hasPortability(data) ? 2 : 0
   const payload = {
     ...data,
     amount,
     commissionRate,
-    commission: Number((amount * commissionRate).toFixed(2)),
+    commission: Number(((planValue * commissionRate) + portabilityCommission).toFixed(2)),
+    commissionDetails: {
+      ...(data.commissionDetails || {}),
+      revenue: {
+        base: planValue,
+        rate: commissionRate,
+        amount: Number((planValue * commissionRate).toFixed(2)),
+      },
+      portability: {
+        count: hasPortability(data) ? 1 : 0,
+        amount: portabilityCommission,
+      },
+    },
   }
   if (includeTimestamp) {
     payload.createdAt = serverTimestamp()
@@ -495,17 +519,18 @@ function fiberRowMatches(row, filters = {}) {
 }
 
 async function getFiberRowsFromFirestore() {
+  const rows = []
   for (const collectionName of fiberCoverageCollections) {
     try {
       const snap = await getDocs(collection(db, collectionName))
       if (!snap.empty) {
-        return snap.docs.map(serializeFiberRow)
+        rows.push(...snap.docs.map(serializeFiberRow))
       }
     } catch (error) {
       console.warn(`Não foi possível ler ${collectionName} no Firestore.`, error)
     }
   }
-  return []
+  return rows
 }
 
 export async function getFiberViabilityCities() {
@@ -569,25 +594,39 @@ export async function distributeStoreGoals(data) {
     if (!sellers.length) throw new Error('Nenhum vendedor ativo encontrado nessa loja para distribuir as metas.')
 
     const rows = Array.isArray(data.rows) ? data.rows : []
+    const existingGoals = await getGoalsFromFirestore({ month: data.month, year: data.year })
     const writes = []
+    const saveGoal = (payload, matcher) => {
+      const existing = existingGoals.find(matcher)
+      const nextPayload = {
+        ...payload,
+        month: Number(data.month),
+        year: Number(data.year),
+        skipApiSync: true,
+      }
+      writes.push(existing?.id ? updateGoal(existing.id, nextPayload) : addGoal(nextPayload))
+    }
     rows.forEach((row) => {
       sellers.forEach((seller, index) => {
-        writes.push(addGoal({
+        const sellerId = seller.uid || seller.id
+        saveGoal({
           ...row,
           targetValue: getDistributedTarget(row.targetValue, sellers.length, index),
           currentValue: 0,
-          userId: seller.uid || seller.id,
+          userId: sellerId,
           userName: seller.name || seller.email || 'Vendedor',
           storeName: '',
           groupName: '',
           storeCity: seller.storeCity || data.storeCity || '',
           storeState: seller.storeState || data.storeState || '',
-          month: Number(data.month),
-          year: Number(data.year),
-          skipApiSync: true,
-        }))
+        }, (goal) => (
+          goal.userId === sellerId
+          && goal.type === row.type
+          && !goal.storeName
+          && !goal.groupName
+        ))
       })
-      writes.push(addGoal({
+      saveGoal({
         ...row,
         currentValue: Number(row.currentValue || 0),
         userId: '',
@@ -596,10 +635,12 @@ export async function distributeStoreGoals(data) {
         groupName: '',
         storeCity: data.storeCity || '',
         storeState: data.storeState || '',
-        month: Number(data.month),
-        year: Number(data.year),
-        skipApiSync: true,
-      }))
+      }, (goal) => (
+        normalizeText(goal.storeName) === storeKey
+        && goal.type === row.type
+        && !goal.userId
+        && !goal.groupName
+      ))
     })
     const goals = await Promise.all(writes)
     return { message: 'Metas salvas no Firestore.', sellersCount: sellers.length, goalsCount: goals.length, goals }
@@ -847,6 +888,46 @@ export async function getUsers() {
     console.warn('Não foi possível carregar usuários pela API. Tentando Firestore direto.', apiError)
     const snap = await getDocs(usersCollection)
     return snap.docs.map(serializeClientDoc)
+  }
+}
+
+export async function disableUserAccess(uid, actorRole = '') {
+  try {
+    const result = await apiRequest(`/api/users/${uid}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actorRole }),
+    })
+    return result || { message: 'Usuário removido/inativado com sucesso' }
+  } catch (apiError) {
+    console.warn('API indisponível para inativar usuário. Marcando perfil como inativo no Firestore.', apiError)
+    const ref = doc(db, 'users', uid)
+    await updateDoc(ref, {
+      disabled: true,
+      accessRemoved: true,
+      updatedAt: serverTimestamp(),
+    })
+    return { message: 'Usuário removido/inativado com sucesso' }
+  }
+}
+
+export async function enableUserAccess(uid, actorRole = '') {
+  try {
+    const result = await apiRequest(`/api/users/${uid}/enable`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actorRole }),
+    })
+    return result || { message: 'Usuário reativado com sucesso' }
+  } catch (apiError) {
+    console.warn('API indisponível para reativar usuário. Reativando perfil no Firestore.', apiError)
+    const ref = doc(db, 'users', uid)
+    await updateDoc(ref, {
+      disabled: false,
+      accessRemoved: false,
+      updatedAt: serverTimestamp(),
+    })
+    return { message: 'Usuário reativado com sucesso' }
   }
 }
 

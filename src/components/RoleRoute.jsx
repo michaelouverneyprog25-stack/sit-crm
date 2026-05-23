@@ -16,6 +16,14 @@ export default function RoleRoute({allowedRoles = [], children}){
     )
   }
   if(!currentUser) return <Navigate to="/login" state={{from:location}} replace />
+  if(currentUser.disabled) {
+    return (
+      <div className="max-w-xl mx-auto bg-gray-800 p-4 rounded">
+        <h1 className="text-xl mb-2">Acesso inativo</h1>
+        <p className="text-sm text-gray-300">Seu usuário foi removido/inativado no CRM. Fale com um administrador para recuperar o acesso.</p>
+      </div>
+    )
+  }
   if(allowedRoles.length && !allowedRoles.includes(role)) {
     return (
       <div className="max-w-xl mx-auto bg-gray-800 p-4 rounded">

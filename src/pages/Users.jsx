@@ -4,10 +4,11 @@ import Toast from '../components/Toast'
 import LoadingOverlay from '../components/LoadingOverlay'
 import { validationRules } from '../config/validation'
 import { useAuth } from '../contexts/AuthContext'
-import { apiRequest, getStores, getUsers } from '../firebase/db'
+import { apiRequest, disableUserAccess, enableUserAccess, getStores, getUsers } from '../firebase/db'
 import { CACHE_KEYS, readArrayCache, sortByName, writeArrayCache } from '../utils/browserCache'
 
 const USER_MANAGEMENT_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
+const USER_STATUS_ROLES = ['Administrador', 'Gestor Master']
 
 export default function Users(){
   const { currentUser } = useAuth() || {}
@@ -232,7 +233,7 @@ export default function Users(){
   }
 
   function openDeleteModal(user){
-    setModal({type:'delete', open:true, user})
+    setModal({type:'disable', open:true, user})
   }
 
   function closeModal(){
@@ -257,53 +258,40 @@ export default function Users(){
   }
 
   async function handleDisable(){
+    const uid = modal.user?.uid || modal.user?.id
+    if (!uid) {
+      showToast('Não foi possível identificar o usuário para inativar.', 'error')
+      return
+    }
     try {
-      await apiRequest(`/api/users/${modal.user.uid}`, {
-        method: 'DELETE',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ actorRole: currentUser?.role })
-      })
-      setCachedUsers((current) => current.map((user) => (user.uid || user.id) === modal.user.uid ? { ...user, disabled: true } : user))
-      showToast('Usuário desativado', 'success')
+      const result = await disableUserAccess(uid, currentUser?.role)
+      setCachedUsers((current) => current.map((user) => (user.uid || user.id) === uid ? { ...user, disabled: true, accessRemoved: true } : user))
+      showToast(result.message || 'Usuário removido/inativado com sucesso', 'success')
       closeModal()
       load({ silent: true })
     } catch (err) {
-      showToast(err.message || 'Erro ao desativar usuário', 'error')
+      showToast(err.message || 'Não foi possível remover/inativar o usuário.', 'error')
     }
   }
 
   async function handleEnable(user){
-    try {
-      await apiRequest(`/api/users/${user.uid}/enable`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ actorRole: currentUser?.role })
-      })
-      setCachedUsers((current) => current.map((item) => (item.uid || item.id) === user.uid ? { ...item, disabled: false } : item))
-      showToast('Usuário reativado', 'success')
-      load({ silent: true })
-    } catch (err) {
-      showToast(err.message || 'Erro ao reativar usuário', 'error')
+    const uid = user.uid || user.id
+    if (!uid) {
+      showToast('Não foi possível identificar o usuário para reativar.', 'error')
+      return
     }
-  }
-
-  async function handleDelete(){
     try {
-      await apiRequest(`/api/users/${modal.user.uid}/permanent`, {
-        method: 'DELETE',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ actorRole: currentUser?.role })
-      })
-      setCachedUsers((current) => current.filter((user) => (user.uid || user.id) !== modal.user.uid))
-      showToast('Usuário excluído', 'success')
-      closeModal()
+      const result = await enableUserAccess(uid, currentUser?.role)
+      setCachedUsers((current) => current.map((item) => (item.uid || item.id) === uid ? { ...item, disabled: false, accessRemoved: false } : item))
+      showToast(result.message || 'Usuário reativado com sucesso', 'success')
       load({ silent: true })
     } catch (err) {
-      showToast(err.message || 'Erro ao excluir usuário', 'error')
+      showToast(err.message || 'Não foi possível reativar o usuário.', 'error')
     }
   }
 
   const canManageUserStatus = USER_MANAGEMENT_ROLES.includes(currentUser?.role)
+  const canInactivateUsers = USER_STATUS_ROLES.includes(currentUser?.role)
   const filteredUsers = users.filter((user) => {
     const term = search.trim().toLowerCase()
     if (!term) return true
@@ -403,13 +391,13 @@ export default function Users(){
                   <div className="flex flex-wrap gap-2">
                     <button onClick={()=>startEdit(u)} className="px-2 py-1 bg-blue-600 rounded">Editar</button>
                     <button onClick={()=>openResetModal(u)} className="px-2 py-1 bg-yellow-600 rounded">Resetar senha</button>
-                    {canManageUserStatus && (u.disabled ? (
+                    {canInactivateUsers && (u.disabled ? (
                       <button onClick={() => handleEnable(u)} className="px-2 py-1 bg-green-600 rounded">Reativar</button>
                     ) : (
-                      <button onClick={()=>openDisableModal(u)} className="px-2 py-1 bg-red-600 rounded">Desativar</button>
+                      <button onClick={()=>openDisableModal(u)} className="px-2 py-1 bg-red-600 rounded">Inativar</button>
                     ))}
-                    {canManageUserStatus && u.role !== 'Administrador' && (
-                      <button onClick={()=>openDeleteModal(u)} className="px-2 py-1 bg-red-800 rounded">Excluir</button>
+                    {canInactivateUsers && u.role !== 'Administrador' && !u.disabled && (
+                      <button onClick={()=>openDeleteModal(u)} className="px-2 py-1 bg-red-800 rounded">Remover acesso</button>
                     )}
                   </div>
                 </div>
@@ -425,7 +413,7 @@ export default function Users(){
       <Toast open={toast.open} message={toast.msg} type={toast.type} onClose={() => setToast({...toast, open:false})} />
       <LoadingOverlay open={loading} />
 
-      <Modal open={modal.open} title={modal.type === 'reset' ? 'Redefinir senha' : modal.type === 'delete' ? 'Excluir usuário' : 'Desativar usuário'} onClose={closeModal}>
+      <Modal open={modal.open} title={modal.type === 'reset' ? 'Redefinir senha' : 'Inativar usuário'} onClose={closeModal}>
         {modal.type === 'reset' ? (
           <div className="space-y-4">
             <div>Digite a nova senha para <strong>{modal.user?.email}</strong></div>
@@ -435,21 +423,13 @@ export default function Users(){
               <button onClick={handleReset} className="px-4 py-2 bg-yellow-600 rounded">Salvar senha</button>
             </div>
           </div>
-        ) : modal.type === 'delete' ? (
-          <div className="space-y-4">
-            <p>Tem certeza que deseja excluir definitivamente <strong>{modal.user?.email}</strong>?</p>
-            <p className="text-sm text-gray-400">Esta ação remove o usuário do Firebase Authentication e do Firestore.</p>
-            <div className="flex justify-end gap-2">
-              <button onClick={closeModal} className="px-4 py-2 bg-gray-600 rounded">Cancelar</button>
-              <button onClick={handleDelete} className="px-4 py-2 bg-red-800 rounded">Excluir</button>
-            </div>
-          </div>
         ) : (
           <div className="space-y-4">
-            <p>Tem certeza que deseja desativar <strong>{modal.user?.email}</strong>?</p>
+            <p>Tem certeza que deseja inativar <strong>{modal.user?.email}</strong>?</p>
+            <p className="text-sm text-gray-400">O acesso será removido do sistema, mas vendas, metas e relatórios antigos serão preservados.</p>
             <div className="flex justify-end gap-2">
               <button onClick={closeModal} className="px-4 py-2 bg-gray-600 rounded">Cancelar</button>
-              <button onClick={handleDisable} className="px-4 py-2 bg-red-600 rounded">Desativar</button>
+              <button onClick={handleDisable} className="px-4 py-2 bg-red-600 rounded">Inativar usuário</button>
             </div>
           </div>
         )}
