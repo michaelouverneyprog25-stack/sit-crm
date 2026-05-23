@@ -1,0 +1,315 @@
+[debug] [2026-05-18T21:27:06.772Z] ----------------------------------------------------------------------
+[debug] [2026-05-18T21:27:06.773Z] Command:       /home/michael/.nvm/versions/node/v24.15.0/bin/node /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/.bin/firebase deploy --only firestore:rules --project crm-vendas-e1b54
+[debug] [2026-05-18T21:27:06.773Z] CLI Version:   15.18.0
+[debug] [2026-05-18T21:27:06.773Z] Platform:      linux
+[debug] [2026-05-18T21:27:06.773Z] Node Version:  v24.15.0
+[debug] [2026-05-18T21:27:06.773Z] Time:          Mon May 18 2026 18:27:06 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-05-18T21:27:06.774Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-18T21:27:06.774Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-05-18T21:27:07.273Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-18T21:27:07.299Z] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at GoogleAuth.getApplicationDefaultAsync (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:287:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async GoogleAuth._GoogleAuth_determineClient (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:834:32)
+    at async GoogleAuth.getClient (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:698:20)
+    at async GoogleAuth.getAccessToken (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:722:24)
+    at async autoAuth (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requireAuth.js:28:19)
+    at async requireAuth (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requireAuth.js:90:20)
+    at async requirePermissions (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requirePermissions.js:17:5)
+    at async /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/command.js:271:17
+[error] 
+[error] Error: Failed to authenticate, have you run firebase login?
+[debug] [2026-05-18T21:27:24.849Z] ----------------------------------------------------------------------
+[debug] [2026-05-18T21:27:24.850Z] Command:       /home/michael/.nvm/versions/node/v24.15.0/bin/node /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/.bin/firebase deploy --only firestore:rules --project crm-vendas-e1b54
+[debug] [2026-05-18T21:27:24.851Z] CLI Version:   15.18.0
+[debug] [2026-05-18T21:27:24.851Z] Platform:      linux
+[debug] [2026-05-18T21:27:24.851Z] Node Version:  v24.15.0
+[debug] [2026-05-18T21:27:24.851Z] Time:          Mon May 18 2026 18:27:24 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-05-18T21:27:24.851Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-18T21:27:24.852Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-05-18T21:27:25.340Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-18T21:27:25.614Z] Running auto auth
+[debug] [2026-05-18T21:27:25.615Z] [iam] checking project crm-vendas-e1b54 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-05-18T21:27:25.616Z] No OAuth tokens found
+[debug] [2026-05-18T21:27:25.617Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions [none]
+[debug] [2026-05-18T21:27:25.618Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions  x-goog-user-project=crm-vendas-e1b54
+[debug] [2026-05-18T21:27:25.618Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-05-18T21:27:25.831Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-05-18T21:27:25.831Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-05-18T21:27:26.925Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions 200
+[debug] [2026-05-18T21:27:26.926Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions {"permissions":["datastore.indexes.list","firebase.projects.get"]}
+[debug] [2026-05-18T21:27:26.926Z] [iam] error while checking permissions, command may fail: Authorization failed. This account is missing the following required permissions on project crm-vendas-e1b54:
+
+  datastore.indexes.create
+  datastore.indexes.delete
+  datastore.indexes.update
+[info] 
+[info] === Deploying to 'crm-vendas-e1b54'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-18T21:27:26.935Z] No OAuth tokens found
+[debug] [2026-05-18T21:27:26.936Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com [none]
+[debug] [2026-05-18T21:27:26.936Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com  x-goog-user-project=crm-vendas-e1b54
+[debug] [2026-05-18T21:27:28.391Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com 403
+[debug] [2026-05-18T21:27:28.391Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com [omitted]
+[error] 
+[error] Error: Request to https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com had HTTP Error: 403, Permission denied to get service [firestore.googleapis.com]
+Help Token: AShNTyHBz8EDsTQGgYkPF-22q7Cj-ixe-vimtW_racWN3C4VuhpLKdXzsurocsa_zaDeThi6pA6zevvbl4wBJneCuyCOC-RfHPWw5liipnmAsiSi
+[debug] [2026-05-18T21:27:28.395Z] Error Context: {
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Permission denied to get service [firestore.googleapis.com]\nHelp Token: AShNTyHBz8EDsTQGgYkPF-22q7Cj-ixe-vimtW_racWN3C4VuhpLKdXzsurocsa_zaDeThi6pA6zevvbl4wBJneCuyCOC-RfHPWw5liipnmAsiSi",
+      "status": "PERMISSION_DENIED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.PreconditionFailure",
+          "violations": [
+            {
+              "type": "googleapis.com",
+              "subject": "110002"
+            }
+          ]
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "AUTH_PERMISSION_DENIED",
+          "domain": "serviceusage.googleapis.com"
+        }
+      ]
+    }
+  },
+  "response": {
+    "statusCode": 403
+  }
+}
+[debug] [2026-05-20T06:59:24.806Z] ----------------------------------------------------------------------
+[debug] [2026-05-20T06:59:24.807Z] Command:       /home/michael/.nvm/versions/node/v24.15.0/bin/node /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/.bin/firebase deploy --only firestore:rules
+[debug] [2026-05-20T06:59:24.807Z] CLI Version:   15.18.0
+[debug] [2026-05-20T06:59:24.807Z] Platform:      linux
+[debug] [2026-05-20T06:59:24.807Z] Node Version:  v24.15.0
+[debug] [2026-05-20T06:59:24.807Z] Time:          Wed May 20 2026 03:59:24 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-05-20T06:59:24.807Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-20T06:59:24.808Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[error] 
+[error] Error: No currently active project.
+To run this command, you need to specify a project. You have two options:
+- Run this command with --project <alias_or_project_id>.
+- Set an active project by running firebase use --add, then rerun this command.
+To list all the Firebase projects to which you have access, run firebase projects:list.
+To learn about active projects for the CLI, visit https://firebase.google.com/docs/cli#project_aliases
+
+
+[debug] [2026-05-20T06:59:53.939Z] ----------------------------------------------------------------------
+[debug] [2026-05-20T06:59:53.941Z] Command:       /home/michael/.nvm/versions/node/v24.15.0/bin/node /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/.bin/firebase deploy --only firestore:rules --project crm-vendas-e1b54
+[debug] [2026-05-20T06:59:53.941Z] CLI Version:   15.18.0
+[debug] [2026-05-20T06:59:53.941Z] Platform:      linux
+[debug] [2026-05-20T06:59:53.941Z] Node Version:  v24.15.0
+[debug] [2026-05-20T06:59:53.941Z] Time:          Wed May 20 2026 03:59:53 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-05-20T06:59:53.941Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-20T06:59:53.942Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-05-20T06:59:54.415Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-20T06:59:54.494Z] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at GoogleAuth.getApplicationDefaultAsync (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:287:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async GoogleAuth._GoogleAuth_determineClient (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:834:32)
+    at async GoogleAuth.getClient (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:698:20)
+    at async GoogleAuth.getAccessToken (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:722:24)
+    at async autoAuth (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requireAuth.js:28:19)
+    at async requireAuth (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requireAuth.js:90:20)
+    at async requirePermissions (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requirePermissions.js:17:5)
+    at async /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/command.js:271:17
+[error] 
+[error] Error: Failed to authenticate, have you run firebase login?
+[debug] [2026-05-20T07:00:11.677Z] ----------------------------------------------------------------------
+[debug] [2026-05-20T07:00:11.678Z] Command:       /home/michael/.nvm/versions/node/v24.15.0/bin/node /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/.bin/firebase deploy --only firestore:rules --project crm-vendas-e1b54
+[debug] [2026-05-20T07:00:11.678Z] CLI Version:   15.18.0
+[debug] [2026-05-20T07:00:11.678Z] Platform:      linux
+[debug] [2026-05-20T07:00:11.678Z] Node Version:  v24.15.0
+[debug] [2026-05-20T07:00:11.678Z] Time:          Wed May 20 2026 04:00:11 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-05-20T07:00:11.678Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-20T07:00:11.679Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-05-20T07:00:12.153Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-20T07:00:12.415Z] Running auto auth
+[debug] [2026-05-20T07:00:12.416Z] [iam] checking project crm-vendas-e1b54 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-05-20T07:00:12.416Z] No OAuth tokens found
+[debug] [2026-05-20T07:00:12.417Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions [none]
+[debug] [2026-05-20T07:00:12.417Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions  x-goog-user-project=crm-vendas-e1b54
+[debug] [2026-05-20T07:00:12.417Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-05-20T07:00:12.609Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-05-20T07:00:12.609Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-05-20T07:00:13.427Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions 200
+[debug] [2026-05-20T07:00:13.428Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions {"permissions":["datastore.indexes.list","firebase.projects.get"]}
+[debug] [2026-05-20T07:00:13.428Z] [iam] error while checking permissions, command may fail: Authorization failed. This account is missing the following required permissions on project crm-vendas-e1b54:
+
+  datastore.indexes.create
+  datastore.indexes.delete
+  datastore.indexes.update
+[info] 
+[info] === Deploying to 'crm-vendas-e1b54'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-20T07:00:13.434Z] No OAuth tokens found
+[debug] [2026-05-20T07:00:13.434Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com [none]
+[debug] [2026-05-20T07:00:13.434Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com  x-goog-user-project=crm-vendas-e1b54
+[debug] [2026-05-20T07:00:14.550Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com 403
+[debug] [2026-05-20T07:00:14.550Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com [omitted]
+[error] 
+[error] Error: Request to https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com had HTTP Error: 403, Permission denied to get service [firestore.googleapis.com]
+Help Token: AShNTyFtslY1QKCYjrrXROdw2_0axz-v1a5lbimus5uTJmtx1ani3WcMKzS8s2uMEuCpUuU5SO2tFlg1h_jbVTCf8eZrHMm1BEV5-Zffd4x079JU
+[debug] [2026-05-20T07:00:14.553Z] Error Context: {
+  "body": {
+    "error": {
+      "code": 403,
+      "message": "Permission denied to get service [firestore.googleapis.com]\nHelp Token: AShNTyFtslY1QKCYjrrXROdw2_0axz-v1a5lbimus5uTJmtx1ani3WcMKzS8s2uMEuCpUuU5SO2tFlg1h_jbVTCf8eZrHMm1BEV5-Zffd4x079JU",
+      "status": "PERMISSION_DENIED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.PreconditionFailure",
+          "violations": [
+            {
+              "type": "googleapis.com",
+              "subject": "110002"
+            }
+          ]
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "AUTH_PERMISSION_DENIED",
+          "domain": "serviceusage.googleapis.com"
+        }
+      ]
+    }
+  },
+  "response": {
+    "statusCode": 403
+  }
+}
+[debug] [2026-05-20T07:01:45.874Z] ----------------------------------------------------------------------
+[debug] [2026-05-20T07:01:45.875Z] Command:       /home/michael/.nvm/versions/node/v24.15.0/bin/node /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/.bin/firebase deploy --only firestore:rules
+[debug] [2026-05-20T07:01:45.875Z] CLI Version:   15.18.0
+[debug] [2026-05-20T07:01:45.875Z] Platform:      linux
+[debug] [2026-05-20T07:01:45.875Z] Node Version:  v24.15.0
+[debug] [2026-05-20T07:01:45.875Z] Time:          Wed May 20 2026 04:01:45 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-05-20T07:01:45.875Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-20T07:01:46.347Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-20T07:01:46.417Z] Error: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.
+    at GoogleAuth.getApplicationDefaultAsync (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:287:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async GoogleAuth._GoogleAuth_determineClient (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:834:32)
+    at async GoogleAuth.getClient (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:698:20)
+    at async GoogleAuth.getAccessToken (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/google-auth-library/build/src/auth/googleauth.js:722:24)
+    at async autoAuth (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requireAuth.js:28:19)
+    at async requireAuth (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requireAuth.js:90:20)
+    at async requirePermissions (/home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/requirePermissions.js:17:5)
+    at async /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/firebase-tools/lib/command.js:271:17
+[error] 
+[error] Error: Failed to authenticate, have you run firebase login?
+[debug] [2026-05-20T07:02:11.360Z] ----------------------------------------------------------------------
+[debug] [2026-05-20T07:02:11.361Z] Command:       /home/michael/.nvm/versions/node/v24.15.0/bin/node /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/.bin/firebase login --no-localhost
+[debug] [2026-05-20T07:02:11.361Z] CLI Version:   15.18.0
+[debug] [2026-05-20T07:02:11.361Z] Platform:      linux
+[debug] [2026-05-20T07:02:11.361Z] Node Version:  v24.15.0
+[debug] [2026-05-20T07:02:11.362Z] Time:          Wed May 20 2026 04:02:11 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-05-20T07:02:11.362Z] ----------------------------------------------------------------------
+[debug] 
+[info] i  The Firebase CLI’s MCP server feature can optionally make use of Gemini in Firebase. Learn more about Gemini in Firebase and how it uses your data: https://firebase.google.com/docs/gemini-in-firebase#how-gemini-in-firebase-uses-your-data 
+[info] 
+[info] i  Firebase optionally collects CLI and Emulator Suite usage and error reporting information to help improve our products. Data is collected in accordance with Google's privacy policy (https://policies.google.com/privacy) and is not used to identify you. 
+[debug] [2026-05-20T07:02:20.210Z] >>> [apiv2][query] POST https://auth.firebase.tools/attest [none]
+[debug] [2026-05-20T07:02:20.210Z] >>> [apiv2][body] POST https://auth.firebase.tools/attest {"session_id":"df945b8e-7aad-4563-9ed3-b8da0bc58d29"}
+[debug] [2026-05-20T07:02:21.327Z] <<< [apiv2][status] POST https://auth.firebase.tools/attest 200
+[debug] [2026-05-20T07:02:21.327Z] <<< [apiv2][body] POST https://auth.firebase.tools/attest {"token":"uxgf6GEPX9a9NORcaVb91noWIu_EGezsCPKA3-aVR8c"}
+[info] 
+[info] To sign in to the Firebase CLI:
+[info] 
+[info] 1. Take note of your session ID:
+[info] 
+[info]    DF945
+[info] 
+[info] 2. Visit the URL below on any device and follow the instructions to get your code:
+[info] 
+[info]    https://auth.firebase.tools/login?code_challenge=wkX1t_5XgSDXMxgKwYtoYZBN1obJVLkF5ceggH4JA6g&session=df945b8e-7aad-4563-9ed3-b8da0bc58d29&attest=uxgf6GEPX9a9NORcaVb91noWIu_EGezsCPKA3-aVR8c
+[info] 
+[info] 3. Paste or enter the authorization code below once you have it:
+[info] 
+[debug] [2026-05-20T07:04:30.347Z] >>> [apiv2][query] POST https://accounts.google.com/o/oauth2/token [none]
+[debug] [2026-05-20T07:04:30.347Z] >>> [apiv2][body] POST https://accounts.google.com/o/oauth2/token [omitted]
+[debug] [2026-05-20T07:04:30.770Z] <<< [apiv2][status] POST https://accounts.google.com/o/oauth2/token 200
+[debug] [2026-05-20T07:06:32.504Z] ----------------------------------------------------------------------
+[debug] [2026-05-20T07:06:32.505Z] Command:       /home/michael/.nvm/versions/node/v24.15.0/bin/node /home/michael/.npm/_npx/7750544ccf494d8b/node_modules/.bin/firebase deploy --only firestore:rules
+[debug] [2026-05-20T07:06:32.505Z] CLI Version:   15.18.0
+[debug] [2026-05-20T07:06:32.505Z] Platform:      linux
+[debug] [2026-05-20T07:06:32.505Z] Node Version:  v24.15.0
+[debug] [2026-05-20T07:06:32.505Z] Time:          Wed May 20 2026 04:06:32 GMT-0300 (Brasilia Standard Time)
+[debug] [2026-05-20T07:06:32.506Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-20T07:06:32.970Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-20T07:06:32.970Z] > authorizing via signed-in user (michaelouverneyprog.25@gmail.com)
+[debug] [2026-05-20T07:06:32.970Z] [iam] checking project crm-vendas-e1b54 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-05-20T07:06:32.971Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:32.971Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:32.972Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions [none]
+[debug] [2026-05-20T07:06:32.972Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions  x-goog-user-project=crm-vendas-e1b54
+[debug] [2026-05-20T07:06:32.973Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-05-20T07:06:34.025Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions 200
+[debug] [2026-05-20T07:06:34.025Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/crm-vendas-e1b54:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'crm-vendas-e1b54'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-20T07:06:34.031Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:34.032Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:34.032Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com [none]
+[debug] [2026-05-20T07:06:34.032Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com  x-goog-user-project=crm-vendas-e1b54
+[debug] [2026-05-20T07:06:35.165Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com 200
+[debug] [2026-05-20T07:06:35.165Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/crm-vendas-e1b54/services/firestore.googleapis.com [omitted]
+[info] ✔  firestore: required API firestore.googleapis.com is enabled 
+[info] i  firestore: ensuring required API firestore.googleapis.com is enabled... 
+[debug] [2026-05-20T07:06:35.174Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:35.174Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:35.175Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/crm-vendas-e1b54/databases/(default) [none]
+[debug] [2026-05-20T07:06:35.589Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/crm-vendas-e1b54/databases/(default) 200
+[debug] [2026-05-20T07:06:35.589Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/crm-vendas-e1b54/databases/(default) {"name":"projects/crm-vendas-e1b54/databases/(default)","uid":"0b7b17db-26c8-4248-b014-f85cfa02cd86","createTime":"2026-05-18T17:05:20.652665Z","updateTime":"2026-05-18T17:05:20.652665Z","locationId":"southamerica-east1","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2026-05-20T06:06:35.517547Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"i","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"realtimeUpdatesMode":"REALTIME_UPDATES_MODE_ENABLED","etag":"ILXut/2mx5QDMPCS/Jqpw5QD"}
+[info] i  firestore: reading indexes from firestore.indexes.json... 
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-05-20T07:06:35.594Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:35.595Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:35.595Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54:test [none]
+[debug] [2026-05-20T07:06:35.596Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54:test [omitted]
+[debug] [2026-05-20T07:06:37.138Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54:test 200
+[debug] [2026-05-20T07:06:37.139Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54:test {}
+[info] ✔  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-05-20T07:06:37.141Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:37.141Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:37.142Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/releases pageSize=10&pageToken=
+[debug] [2026-05-20T07:06:38.249Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/releases 200
+[debug] [2026-05-20T07:06:38.249Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/releases {"releases":[{"name":"projects/crm-vendas-e1b54/releases/cloud.firestore","rulesetName":"projects/crm-vendas-e1b54/rulesets/1b657baa-c461-4140-81e4-2f018b659c87","createTime":"2026-05-18T17:05:25.318103Z","updateTime":"2026-05-18T17:05:25.318103Z"}]}
+[debug] [2026-05-20T07:06:38.250Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:38.250Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:38.251Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/rulesets/1b657baa-c461-4140-81e4-2f018b659c87 [none]
+[debug] [2026-05-20T07:06:39.404Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/rulesets/1b657baa-c461-4140-81e4-2f018b659c87 200
+[debug] [2026-05-20T07:06:39.405Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/rulesets/1b657baa-c461-4140-81e4-2f018b659c87 [omitted]
+[info] i  firestore: uploading rules firestore.rules... 
+[debug] [2026-05-20T07:06:39.407Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:39.408Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:39.408Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/rulesets [none]
+[debug] [2026-05-20T07:06:39.408Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/rulesets [omitted]
+[debug] [2026-05-20T07:06:40.940Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/rulesets 200
+[debug] [2026-05-20T07:06:40.941Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/rulesets {"name":"projects/crm-vendas-e1b54/rulesets/b0492090-9c99-43b2-b1c5-6bba00110ca4","source":{"files":[{"content":"rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n\n    // Users collection: only admins or the user themself can read/write their profile\n    match /users/{userId} {\n      allow read: if isSignedIn() && (\n        isAdmin() || request.auth.uid == userId || isManager()\n      );\n      allow write: if isSignedIn() && (\n        isAdmin() || request.auth.uid == userId\n      );\n    }\n\n    // Vendas collection: sellers can create and read their own, managers/admins can read all\n    match /vendas/{saleId} {\n      allow create: if isSignedIn() && (\n        isAdmin() || isManager() || request.resource.data.seller == getUserEmail()\n      );\n      allow read: if isSignedIn() && (isAdmin() || isManager() || resource.data.seller == getUserEmail());\n      allow update: if isSignedIn() && (isAdmin() || isManager());\n      allow delete: if isSignedIn() && isAdmin();\n    }\n\n    // Portabilidades collection: similar access rules for seller operations\n    match /portabilidades/{itemId} {\n      allow create: if isSignedIn() && request.resource.data.seller == getUserEmail();\n      allow read: if isSignedIn() && (isAdmin() || isManager() || resource.data.seller == getUserEmail());\n      allow update: if isSignedIn() && (isAdmin() || isManager());\n      allow delete: if isSignedIn() && isAdmin();\n    }\n\n    // Legacy metas collection: authenticated users can read/write while data migrates to goals\n    match /metas/{metaId} {\n      allow create, read, update, delete: if isSignedIn();\n    }\n\n    // Goals collection: persistent CRM goals and realized values\n    match /goals/{goalId} {\n      allow create, read, update, delete: if isSignedIn();\n    }\n\n    function isSignedIn() {\n      return request.auth != null;\n    }\n\n    function getUserEmail() {\n      return request.auth.token.email;\n    }\n\n    function getUserRole() {\n      return request.auth.token.role;\n    }\n\n    function isAdmin() {\n      return isSignedIn() && getUserRole() == 'Administrador';\n    }\n\n    function isManager() {\n      return isSignedIn() && (\n        getUserRole() == 'Gerente' ||\n        getUserRole() == 'Gestor Master'\n      );\n    }\n  }\n}\n","name":"firestore.rules"}]},"createTime":"2026-05-20T07:06:40.629823Z","metadata":{"services":["cloud.firestore"]}}
+[debug] [2026-05-20T07:06:40.941Z] [rules] created ruleset projects/crm-vendas-e1b54/rulesets/b0492090-9c99-43b2-b1c5-6bba00110ca4
+[debug] [2026-05-20T07:06:40.942Z] [rules] releasing cloud.firestore with ruleset projects/crm-vendas-e1b54/rulesets/b0492090-9c99-43b2-b1c5-6bba00110ca4
+[debug] [2026-05-20T07:06:40.942Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:40.943Z] Checked if tokens are valid: true, expires at: 1779264269771
+[debug] [2026-05-20T07:06:40.943Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/releases/cloud.firestore [none]
+[debug] [2026-05-20T07:06:40.943Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/releases/cloud.firestore {"release":{"name":"projects/crm-vendas-e1b54/releases/cloud.firestore","rulesetName":"projects/crm-vendas-e1b54/rulesets/b0492090-9c99-43b2-b1c5-6bba00110ca4"}}
+[debug] [2026-05-20T07:06:42.346Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/crm-vendas-e1b54/releases/cloud.firestore 200

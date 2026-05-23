@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection: only admins or the user themself can read/write their profile
+    match /users/{userId} {
+      allow read: if isSignedIn() && (
+        isAdmin() || request.auth.uid == userId || isManager()
+      );
+      allow write: if isSignedIn() && (
+        isAdmin() || request.auth.uid == userId
+      );
+    }
+
+    // Vendas collection: sellers can create and read their own, managers/admins can read all
+    match /vendas/{saleId} {
+      allow create: if isSignedIn() && (
+        isAdmin() || isManager() || request.resource.data.seller == getUserEmail()
+      );
+      allow read: if isSignedIn() && (isAdmin() || isManager() || resource.data.seller == getUserEmail());
+      allow update: if isSignedIn() && (isAdmin() || isManager());
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // Portabilidades collection: similar access rules for seller operations
+    match /portabilidades/{itemId} {
+      allow create: if isSignedIn() && request.resource.data.seller == getUserEmail();
+      allow read: if isSignedIn() && (isAdmin() || isManager() || resource.data.seller == getUserEmail());
+      allow update: if isSignedIn() && (isAdmin() || isManager());
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    // Legacy metas collection: authenticated users can read/write while data migrates to goals
+    match /metas/{metaId} {
+      allow create, read, update, delete: if isSignedIn();
+    }
+
+    // Goals collection: persistent CRM goals and realized values
+    match /goals/{goalId} {
+      allow create, read, update, delete: if isSignedIn();
+    }
+
+    // Commission rules: upgrade commission table managed by admins
+    match /commissionRules/{ruleId} {
+      allow read: if isSignedIn() && (isAdmin() || isManager());
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserEmail() {
+      return request.auth.token.email;
+    }
+
+    function getUserRole() {
+      return request.auth.token.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'Administrador';
+    }
+
+    function isManager() {
+      return isSignedIn() && (
+        getUserRole() == 'Gerente' ||
+        getUserRole() == 'Gestor Master'
+      );
+    }
+  }
+}
