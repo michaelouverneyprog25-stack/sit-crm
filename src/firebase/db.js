@@ -364,6 +364,36 @@ function normalizeSaleText(value) {
     .toUpperCase()
 }
 
+function normalizePlanName(value) {
+  return normalizeText(value)
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, ' ')
+}
+
+function hasWildcardPattern(value) {
+  return String(value || '').includes('*')
+}
+
+function planPatternMatches(pattern, plan) {
+  const normalizedPattern = normalizePlanName(pattern)
+  const normalizedPlan = normalizePlanName(plan)
+  if (!normalizedPattern || !normalizedPlan) return false
+  if (!hasWildcardPattern(pattern)) return normalizedPattern === normalizedPlan
+
+  const escaped = normalizedPattern
+    .split('*')
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('.*')
+  return new RegExp(`^${escaped}$`).test(normalizedPlan)
+}
+
+function getRuleSpecificity(rule = {}) {
+  const previous = normalizePlanName(rule.planoAnterior)
+  const next = normalizePlanName(rule.planoNovo)
+  const wildcardPenalty = (hasWildcardPattern(rule.planoAnterior) ? 1000 : 0) + (hasWildcardPattern(rule.planoNovo) ? 1000 : 0)
+  return previous.length + next.length - wildcardPenalty
+}
+
 function isDependentSale(data = {}) {
   return normalizeSaleText(data.plan) === 'DEPENDENTE'
 }
@@ -379,7 +409,49 @@ function getDependentCount(data = {}) {
   return count || (isDependentSale(data) ? 1 : 0)
 }
 
+async function getCommissionRulesForFallback() {
+  try {
+    const snap = await getDocs(commissionRulesCollection)
+    return snap.docs.map(serializeClientDoc).filter((rule) => rule.ativo !== false)
+  } catch (error) {
+    console.warn('Não foi possível carregar regras para cálculo local de comissão.', error)
+    return []
+  }
+}
+
+function findUpgradeCommissionRuleForSale(sale, rules = []) {
+  if (sale.saleType !== 'Upgrade') return null
+  const previousPlan = normalizePlanName(sale.previousPlan)
+  const newPlan = normalizePlanName(sale.plan)
+  if (!previousPlan || !newPlan) return null
+
+  return rules
+    .filter((rule) => (
+      normalizeText(rule.subcategoria || rule.categoria) === 'upgrade'
+      && planPatternMatches(rule.planoAnterior, previousPlan)
+      && planPatternMatches(rule.planoNovo, newPlan)
+    ))
+    .sort((a, b) => getRuleSpecificity(b) - getRuleSpecificity(a) || Number(b.valorComissao || 0) - Number(a.valorComissao || 0))[0] || null
+}
+
+function findCommissionRuleBySubcategoryForFallback(rules = [], subcategoria) {
+  return rules.find((rule) => normalizeText(rule.subcategoria || rule.categoria) === normalizeText(subcategoria)) || null
+}
+
+function getCommissionPercentForFallback(rule, fallbackPercent) {
+  const percent = Number(rule?.percentualComissao || fallbackPercent || 0)
+  return Number.isFinite(percent) ? percent / 100 : 0
+}
+
+function getStoreCommissionPercentForFallback(rule, fallbackPercent) {
+  const percent = Number(rule?.percentualLoja || fallbackPercent || 0)
+  return Number.isFinite(percent) ? percent / 100 : 0
+}
+
 async function buildSalePayload(data, includeTimestamp = true) {
+  const commissionRules = await getCommissionRulesForFallback()
+  const upgradeRule = findUpgradeCommissionRuleForSale(data, commissionRules)
+  const deviceRule = findCommissionRuleBySubcategoryForFallback(commissionRules, 'Aparelhos')
   const upgradeSale = data.saleType === 'Upgrade'
   const amount = upgradeSale ? 0 : Number(data.amount || 0)
   const planValue = data.saleType === 'Upgrade'
@@ -391,19 +463,22 @@ async function buildSalePayload(data, includeTimestamp = true) {
   const portabilityCommission = hasPortability(data) ? 2 : 0
   const dependentCommission = getDependentCount(data) * 5
   const storePortabilityCommission = hasPortability(data) ? 1 : 0
+  const upgradeCommission = upgradeSale && upgradeRule ? Number(Number(upgradeRule.valorComissao || 0).toFixed(2)) : 0
+  const sellerDeviceRate = getCommissionPercentForFallback(deviceRule, 2)
+  const storeDeviceRate = getStoreCommissionPercentForFallback(deviceRule, 1.5)
   const sellerDeviceCommission = hasDeviceSale(data)
-    ? Number((Number(data.deviceValue || amount || 0) * 0.02).toFixed(2))
+    ? Number((Number(data.deviceValue || amount || 0) * sellerDeviceRate).toFixed(2))
     : 0
   const storeDeviceCommission = hasDeviceSale(data)
-    ? Number((Number(data.deviceValue || amount || 0) * 0.015).toFixed(2))
+    ? Number((Number(data.deviceValue || amount || 0) * storeDeviceRate).toFixed(2))
     : 0
   const payload = {
     ...data,
     amount: isDependentSale(data) ? 0 : amount,
     dependentCount: getDependentCount(data),
     commissionRate,
-    commission: Number(((planValue * commissionRate) + portabilityCommission + dependentCommission + sellerDeviceCommission).toFixed(2)),
-    storeCommission: Number(((planValue * commissionRate) + storePortabilityCommission + dependentCommission + storeDeviceCommission).toFixed(2)),
+    commission: Number(((planValue * commissionRate) + portabilityCommission + dependentCommission + sellerDeviceCommission + upgradeCommission).toFixed(2)),
+    storeCommission: Number(((planValue * commissionRate) + storePortabilityCommission + dependentCommission + storeDeviceCommission + upgradeCommission).toFixed(2)),
     commissionDetails: {
       ...(data.commissionDetails || {}),
       revenue: {
@@ -423,10 +498,20 @@ async function buildSalePayload(data, includeTimestamp = true) {
       },
       devices: {
         base: Number(data.deviceValue || 0),
-        sellerRate: 0.02,
+        sellerRate: sellerDeviceRate,
         sellerAmount: sellerDeviceCommission,
-        storeRate: 0.015,
+        storeRate: storeDeviceRate,
+        ruleId: deviceRule?.id || '',
         storeAmount: storeDeviceCommission,
+      },
+      upgrade: {
+        previousPlan: data.previousPlan || '',
+        newPlan: data.plan || '',
+        ruleId: upgradeRule?.id || '',
+        type: upgradeRule?.tipoUpgrade || '',
+        category: upgradeRule?.categoria || '',
+        amount: upgradeCommission,
+        storeAmount: upgradeCommission,
       },
     },
   }
