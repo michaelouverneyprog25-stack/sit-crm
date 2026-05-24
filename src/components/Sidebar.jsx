@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { BarChart3, Building2, ClipboardList, FileSpreadsheet, Goal, Gauge, ReceiptText, ShoppingCart, Smartphone, Users } from 'lucide-react'
+import { BarChart3, Building2, ClipboardList, Database, FileSpreadsheet, Goal, Gauge, ReceiptText, ShoppingCart, Smartphone, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }){
@@ -13,6 +13,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
   const canViewAllSalesReport = ['Administrador','Gestor Master','Gerente'].includes(role)
   const canManageGoals = ['Administrador','Gestor Master','Gerente','Vendedor'].includes(role)
   const canViewFiberViability = ['Administrador','Gestor Master','Gerente','Vendedor','Executivo'].includes(role)
+  const canManageImports = role === 'Administrador'
   const displayName = currentUser?.name || 'Usuário'
 
   const navItems = [
@@ -26,7 +27,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
     { to: '/goals', label: 'Metas', icon: Goal, show: canManageGoals, end: true },
     { to: '/fiber-viability', label: 'Viabilidade de fibra', icon: Smartphone, show: canViewFiberViability, end: true },
     { to: '/fiber-contracts', label: 'Contratos fibra', icon: ClipboardList, show: canViewFiberViability, end: true },
+    { to: '/admin/imports', label: 'Importação de Base', icon: Database, show: canManageImports, end: true, group: 'Administração' },
+    { to: '/admin/spreadsheets', label: 'Gestão de Planilhas', icon: FileSpreadsheet, show: canManageImports, end: true, group: 'Administração' },
   ].filter((item) => item.show)
+
+  const standardNavItems = navItems.filter((item) => !item.group)
+  const adminNavItems = navItems.filter((item) => item.group === 'Administração')
 
   function linkClass({ isActive }) {
     return [
@@ -64,23 +70,49 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
       <div className={`fixed inset-y-0 left-0 z-20 w-72 transform border-r border-white/10 bg-[#080d14]/95 p-4 shadow-xl backdrop-blur-xl transition-transform duration-200 ease-out md:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <UserBlock />
         <nav className="space-y-1">
-          {navItems.map((item) => (
+          {standardNavItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setSidebarOpen(false)} className={linkClass}>
               <item.icon className="h-4 w-4" aria-hidden="true" />
               {item.label}
             </NavLink>
           ))}
+          {!!adminNavItems.length && (
+            <div className="pt-4">
+              <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Administração</div>
+              <div className="space-y-1">
+                {adminNavItems.map((item) => (
+                  <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setSidebarOpen(false)} className={linkClass}>
+                    <item.icon className="h-4 w-4" aria-hidden="true" />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
       </div>
       <aside className="sticky top-[65px] hidden h-[calc(100vh-65px)] w-72 shrink-0 border-r border-white/10 bg-[#080d14]/55 p-4 backdrop-blur md:block">
         <UserBlock />
         <nav className="space-y-1">
-          {navItems.map((item) => (
+          {standardNavItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
               <item.icon className="h-4 w-4" aria-hidden="true" />
               {item.label}
             </NavLink>
           ))}
+          {!!adminNavItems.length && (
+            <div className="pt-4">
+              <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Administração</div>
+              <div className="space-y-1">
+                {adminNavItems.map((item) => (
+                  <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
+                    <item.icon className="h-4 w-4" aria-hidden="true" />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
       </aside>
     </>

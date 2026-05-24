@@ -11,6 +11,7 @@ import {
   updateDoc,
   doc,
   getDoc,
+  writeBatch,
   serverTimestamp,
   Timestamp,
   onSnapshot,
@@ -29,7 +30,9 @@ const goalsCollection = collection(db, 'goals')
 const usersCollection = collection(db, 'users')
 const storesCollection = collection(db, 'stores')
 const commissionRulesCollection = collection(db, 'commissionRules')
+const importHistoryCollection = collection(db, 'importHistory')
 const fiberCoverageCollections = [
+  'viabilidade_fibra',
   'fiberCoverage',
   'fiberViability',
   'fiberCoverageCities',
@@ -42,6 +45,14 @@ const PENDING_SYNC_KEY = 'sit.pendingSyncQueue'
 const FIBER_ROWS_CACHE_KEY = 'sit.fiberRowsCache'
 const FIBER_CITIES_CACHE_KEY = 'sit.fiberCitiesCache'
 const FIBER_CACHE_TTL_MS = 10 * 60 * 1000
+
+const importTargetCollections = {
+  viabilidade_fibra: 'viabilidade_fibra',
+  clientes: 'clientes',
+  vendas: 'vendas',
+  metas: 'goals',
+  lojas: 'stores',
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -641,6 +652,16 @@ function onlyDigits(value) {
   return String(value || '').replace(/\D/g, '')
 }
 
+function sanitizeDocId(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\/\\#?\[\]]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9_.-]/g, '')
+    .slice(0, 140) || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 function getFiberCityFromDoc(data = {}) {
   return data.city || data.cidade || data.municipio || data.MUNICIPIO || ''
 }
@@ -808,6 +829,105 @@ export async function diagnoseFiberViability() {
     hasData: diagnostics.some((item) => item.rows > 0) || cachedRows.length > 0,
     checkedAt: new Date().toISOString(),
   }
+}
+
+export function subscribeImportHistory(onChange, onError) {
+  return onSnapshot(query(importHistoryCollection, orderBy('createdAt', 'desc')), (snap) => {
+    onChange(snap.docs.map(serializeClientDoc))
+  }, onError)
+}
+
+export async function importBaseRows({
+  target,
+  rows,
+  fileName,
+  actor = {},
+  stats = {},
+}) {
+  const collectionName = importTargetCollections[target]
+  if (!collectionName) throw new Error('Tipo de base inválido para importação.')
+  if (!Array.isArray(rows) || !rows.length) throw new Error('Nenhuma linha válida para importar.')
+
+  return trackedWrite('importacao-base', async () => {
+    const historyRef = doc(importHistoryCollection)
+    const startedAt = new Date().toISOString()
+    const commonHistory = {
+      target,
+      targetCollection: collectionName,
+      fileName: fileName || 'planilha',
+      userId: actor.uid || '',
+      userName: actor.name || actor.email || 'Administrador',
+      userEmail: actor.email || '',
+      totalRows: Number(stats.totalRows || rows.length),
+      validRows: rows.length,
+      invalidRows: Number(stats.invalidRows || 0),
+      duplicateRows: Number(stats.duplicateRows || 0),
+      errors: Array.isArray(stats.errors) ? stats.errors.slice(0, 80) : [],
+      status: 'processando',
+      startedAt,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+
+    await setDoc(historyRef, commonHistory)
+
+    try {
+      let committed = 0
+      for (let start = 0; start < rows.length; start += 400) {
+        const batch = writeBatch(db)
+        rows.slice(start, start + 400).forEach((row) => {
+          const docId = sanitizeDocId(row._docId || row.id)
+          const ref = doc(db, collectionName, docId)
+          const payload = removeUndefinedFields({
+            ...row,
+            id: docId,
+            importId: historyRef.id,
+            importFileName: fileName || '',
+            importedBy: actor.email || actor.uid || '',
+            updatedAt: serverTimestamp(),
+            createdAt: row.createdAt || serverTimestamp(),
+          })
+          delete payload._docId
+          batch.set(ref, payload, { merge: true })
+        })
+        await batch.commit()
+        committed += rows.slice(start, start + 400).length
+        logInternal('import.batch.committed', { target, committed, total: rows.length })
+      }
+
+      const result = {
+        id: historyRef.id,
+        ...commonHistory,
+        importedRows: committed,
+        status: 'concluido',
+        finishedAt: new Date().toISOString(),
+      }
+
+      await updateDoc(historyRef, {
+        importedRows: committed,
+        status: 'concluido',
+        finishedAt: result.finishedAt,
+        updatedAt: serverTimestamp(),
+      })
+
+      if (target === 'viabilidade_fibra') {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(FIBER_ROWS_CACHE_KEY)
+          window.localStorage.removeItem(FIBER_CITIES_CACHE_KEY)
+        }
+      }
+
+      return result
+    } catch (error) {
+      await updateDoc(historyRef, {
+        status: 'erro',
+        errorMessage: error.message || 'Erro ao importar planilha.',
+        updatedAt: serverTimestamp(),
+        finishedAt: new Date().toISOString(),
+      })
+      throw error
+    }
+  })
 }
 
 export async function distributeStoreGoals(data) {

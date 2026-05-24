@@ -20,6 +20,7 @@ const AllSalesReport = lazy(() => import('./pages/AllSalesReport'))
 const Goals = lazy(() => import('./pages/Goals'))
 const FiberViability = lazy(() => import('./pages/FiberViability'))
 const FiberContracts = lazy(() => import('./pages/FiberContracts'))
+const AdminImports = lazy(() => import('./pages/AdminImports'))
 
 function RouteLoader() {
   return (
@@ -54,6 +55,8 @@ export default function App(){
                 <Route path="/goals" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor"]}><Goals/></RoleRoute>} />
                 <Route path="/fiber-viability" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor","Executivo"]}><FiberViability/></RoleRoute>} />
                 <Route path="/fiber-contracts" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor","Executivo"]}><FiberContracts/></RoleRoute>} />
+                <Route path="/admin/imports" element={<RoleRoute allowedRoles={["Administrador"]}><AdminImports/></RoleRoute>} />
+                <Route path="/admin/spreadsheets" element={<RoleRoute allowedRoles={["Administrador"]}><AdminImports/></RoleRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
