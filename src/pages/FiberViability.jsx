@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { getFiberViabilityCities, searchFiberViability } from '../firebase/db'
+import { Activity, Database, Search, ShieldAlert } from 'lucide-react'
+import { diagnoseFiberViability, getFiberViabilityCities, searchFiberViability } from '../firebase/db'
+import { MetricCard, PageHeader, SkeletonRows } from '../components/ui'
 
 const emptyFilters = {
   city: '',
@@ -32,6 +34,7 @@ export default function FiberViability() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
+  const [diagnostics, setDiagnostics] = useState(null)
 
   const hasFilters = useMemo(() => {
     return Object.values(filters).some((value) => String(value || '').trim())
@@ -43,6 +46,14 @@ export default function FiberViability() {
     getFiberViabilityCities()
       .then((data) => {
         if (active) setCities(Array.isArray(data) ? data : [])
+      })
+
+    diagnoseFiberViability()
+      .then((data) => {
+        if (active) setDiagnostics(data)
+      })
+      .catch((err) => {
+        console.warn('Diagnóstico de fibra indisponível:', err)
       })
       .catch((err) => {
         console.error('Erro ao carregar cidades da base de fibra:', err)
@@ -100,21 +111,48 @@ export default function FiberViability() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Rede TIM</p>
-          <h1 className="mt-1 text-3xl font-semibold">Viabilidade de Fibra</h1>
-          <p className="mt-1 text-sm text-gray-400">
-            Consulte a base de cobertura por cidade, CEP, rua e número.
-          </p>
-        </div>
-        <div className="rounded bg-gray-800 px-4 py-3">
-          <div className="text-sm text-gray-400">Resultados encontrados</div>
-          <div className="text-2xl font-semibold">{formatNumber(result.totalMatches)}</div>
-        </div>
+      <PageHeader
+        eyebrow="Rede TIM"
+        title="Viabilidade de Fibra"
+        description="Consulta otimizada com cache, fallback e diagnóstico automático das bases de cobertura."
+        metric={(
+          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+            <div className="text-sm text-gray-400">Resultados encontrados</div>
+            <div className="text-2xl font-semibold">{formatNumber(result.totalMatches)}</div>
+          </div>
+        )}
+      />
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          label="Cidades carregadas"
+          value={loadingCities ? '...' : formatNumber(cities.length)}
+          helper="Cache inteligente e fallback por lojas"
+          tone="cyan"
+          icon={Database}
+        />
+        <MetricCard
+          label="Base de fibra"
+          value={diagnostics?.hasData ? 'Ativa' : 'Diagnóstico'}
+          helper={`${diagnostics?.collections?.filter((item) => item.status === 'ok').length || 0} collection(s) com dados`}
+          tone={diagnostics?.hasData ? 'emerald' : 'amber'}
+          icon={Activity}
+        />
+        <MetricCard
+          label="Linhas em cache"
+          value={formatNumber(diagnostics?.cachedRows || 0)}
+          helper="Usadas automaticamente se Firestore/API falhar"
+          tone="violet"
+          icon={ShieldAlert}
+        />
       </div>
 
       {error && <div className="rounded border border-red-300/30 bg-red-600/20 p-3 text-sm text-red-100">{error}</div>}
+      {diagnostics && !diagnostics.hasData && (
+        <div className="rounded border border-amber-300/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+          Diagnóstico: nenhuma collection de fibra retornou dados. O sistema tentará usar lojas cadastradas e cache local.
+        </div>
+      )}
 
       <form onSubmit={search} className="rounded bg-gray-800 p-5">
         <div className="grid gap-3 md:grid-cols-5">
@@ -185,7 +223,10 @@ export default function FiberViability() {
               Limpar
             </button>
             <button disabled={loading} type="submit" className="rounded bg-blue-600 px-4 py-2.5 font-semibold disabled:opacity-50">
-              {loading ? 'Consultando...' : 'Consultar'}
+              <span className="inline-flex items-center gap-2">
+                <Search className="h-4 w-4" aria-hidden="true" />
+                {loading ? 'Consultando...' : 'Consultar'}
+              </span>
             </button>
           </div>
         </div>
@@ -204,6 +245,9 @@ export default function FiberViability() {
           {result.elapsedMs > 0 && <span className="text-sm text-gray-400">Busca em {(result.elapsedMs / 1000).toFixed(1)}s</span>}
         </div>
         <div className="overflow-x-auto">
+          {loading ? (
+            <SkeletonRows rows={6} />
+          ) : (
           <table className="w-full min-w-[1180px] border-collapse">
             <thead className="bg-gray-900 text-left text-xs uppercase tracking-wide text-gray-400">
               <tr>
@@ -240,6 +284,7 @@ export default function FiberViability() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
         {searched && !loading && !(result.rows || []).length && (
           <div className="p-6 text-gray-400">Nenhum endereço encontrado para os filtros informados.</div>

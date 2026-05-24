@@ -1,5 +1,6 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
+import { BarChart3, Building2, ClipboardList, FileSpreadsheet, Goal, Gauge, ReceiptText, ShoppingCart, Smartphone, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }){
@@ -15,21 +16,21 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
   const displayName = currentUser?.name || 'Usuário'
 
   const navItems = [
-    { to: '/', label: 'Dashboard', show: true, end: true },
-    { to: '/sales', label: 'Vendas', show: true, end: true },
-    { to: '/reports', label: 'Relatórios', show: canViewReports, end: true },
-    { to: '/reports/all-sales', label: 'Relatório de vendas', show: canViewAllSalesReport, end: true },
-    { to: '/users', label: 'Usuários', show: canManageUsers, end: true },
-    { to: '/stores', label: 'Lojas', show: canManageStores, end: true },
-    { to: '/commission-rules', label: 'Regras de comissão', show: canManageCommissionRules, end: true },
-    { to: '/goals', label: 'Metas', show: canManageGoals, end: true },
-    { to: '/fiber-viability', label: 'Viabilidade de fibra', show: canViewFiberViability, end: true },
-    { to: '/fiber-contracts', label: 'Contratos fibra', show: canViewFiberViability, end: true },
+    { to: '/', label: 'Dashboard', icon: Gauge, show: true, end: true },
+    { to: '/sales', label: 'Vendas', icon: ShoppingCart, show: true, end: true },
+    { to: '/reports', label: 'Relatórios', icon: BarChart3, show: canViewReports, end: true },
+    { to: '/reports/all-sales', label: 'Relatório de vendas', icon: FileSpreadsheet, show: canViewAllSalesReport, end: true },
+    { to: '/users', label: 'Usuários', icon: Users, show: canManageUsers, end: true },
+    { to: '/stores', label: 'Lojas', icon: Building2, show: canManageStores, end: true },
+    { to: '/commission-rules', label: 'Regras de comissão', icon: ReceiptText, show: canManageCommissionRules, end: true },
+    { to: '/goals', label: 'Metas', icon: Goal, show: canManageGoals, end: true },
+    { to: '/fiber-viability', label: 'Viabilidade de fibra', icon: Smartphone, show: canViewFiberViability, end: true },
+    { to: '/fiber-contracts', label: 'Contratos fibra', icon: ClipboardList, show: canViewFiberViability, end: true },
   ].filter((item) => item.show)
 
   function linkClass({ isActive }) {
     return [
-      'block rounded px-3 py-2.5 text-sm font-medium transition',
+      'flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition',
       isActive
         ? 'bg-cyan-300 text-slate-950'
         : 'text-slate-300 hover:bg-white/10 hover:text-white',
@@ -65,6 +66,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
         <nav className="space-y-1">
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setSidebarOpen(false)} className={linkClass}>
+              <item.icon className="h-4 w-4" aria-hidden="true" />
               {item.label}
             </NavLink>
           ))}
@@ -75,6 +77,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
         <nav className="space-y-1">
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
+              <item.icon className="h-4 w-4" aria-hidden="true" />
               {item.label}
             </NavLink>
           ))}

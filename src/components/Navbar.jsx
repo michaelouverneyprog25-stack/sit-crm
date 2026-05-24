@@ -1,8 +1,10 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { LogOut, Menu, Moon, Sun } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import { logout } from '../firebase/auth'
 import { useAuth } from '../contexts/AuthContext'
+import SyncStatus from './SyncStatus'
 
 export default function Navbar({ sidebarOpen, setSidebarOpen }){
   const {dark,setDark} = useTheme()
@@ -24,9 +26,7 @@ export default function Navbar({ sidebarOpen, setSidebarOpen }){
             className="md:hidden rounded border border-white/10 bg-white/5 p-2 text-slate-200 hover:bg-white/10"
             aria-label="Abrir menu"
           >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fillRule="evenodd" d="M3 5h14a1 1 0 010 2H3a1 1 0 110-2zm0 4h14a1 1 0 010 2H3a1 1 0 110-2zm0 4h14a1 1 0 010 2H3a1 1 0 110-2z" clipRule="evenodd" />
-            </svg>
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
           <Link to="/" className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded bg-cyan-300 text-sm font-black text-slate-950">SIT</span>
@@ -37,12 +37,19 @@ export default function Navbar({ sidebarOpen, setSidebarOpen }){
           </Link>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <SyncStatus />
           <div className="hidden text-right sm:block">
             <div className="text-sm font-medium text-slate-100">{currentUser?.name || 'Usuário'}</div>
             <div className="text-xs text-slate-400">{currentUser?.role || 'Perfil'}</div>
           </div>
-          <button onClick={()=>setDark(!dark)} className="rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 hover:bg-white/10">{dark? 'Light' : 'Dark'}</button>
-          <button onClick={handleLogout} className="rounded bg-red-600 px-3 py-2 text-sm font-semibold text-white">Sair</button>
+          <button onClick={()=>setDark(!dark)} className="inline-flex items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 hover:bg-white/10">
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {dark? 'Light' : 'Dark'}
+          </button>
+          <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded bg-red-600 px-3 py-2 text-sm font-semibold text-white">
+            <LogOut className="h-4 w-4" />
+            Sair
+          </button>
         </div>
       </div>
     </nav>

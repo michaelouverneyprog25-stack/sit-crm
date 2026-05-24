@@ -19,6 +19,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth'
 import { app } from './app'
 import { auth } from './auth'
+import { logInternal, reportError } from '../utils/operationLog'
 
 const db = getFirestore(app)
 
@@ -36,6 +37,100 @@ const fiberCoverageCollections = [
   'cidadesFibra',
   'viabilidadeFibra',
 ]
+const API_CACHE_PREFIX = 'sit.apiCache.'
+const PENDING_SYNC_KEY = 'sit.pendingSyncQueue'
+const FIBER_ROWS_CACHE_KEY = 'sit.fiberRowsCache'
+const FIBER_CITIES_CACHE_KEY = 'sit.fiberCitiesCache'
+const FIBER_CACHE_TTL_MS = 10 * 60 * 1000
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function notifySync(detail) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('sit:sync-status', { detail }))
+}
+
+function readJsonCache(key, fallback = null) {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(key) || 'null')
+    return parsed || fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeJsonCache(key, value) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(key, JSON.stringify(value))
+}
+
+function readApiCache(path) {
+  const cached = readJsonCache(`${API_CACHE_PREFIX}${path}`)
+  return cached?.data || null
+}
+
+function writeApiCache(path, data) {
+  writeJsonCache(`${API_CACHE_PREFIX}${path}`, { data, updatedAt: Date.now() })
+}
+
+function readPendingSyncQueue() {
+  return readJsonCache(PENDING_SYNC_KEY, [])
+}
+
+function writePendingSyncQueue(queue) {
+  writeJsonCache(PENDING_SYNC_KEY, queue)
+  notifySync({
+    status: queue.length ? 'pending' : 'success',
+    pending: queue.length,
+    message: queue.length ? 'Itens aguardando sincronização' : 'Salvo com sucesso',
+  })
+}
+
+function enqueuePendingSync(item) {
+  const queue = readPendingSyncQueue()
+  const nextItem = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    attempts: 0,
+    createdAt: new Date().toISOString(),
+    ...item,
+  }
+  writePendingSyncQueue([...queue, nextItem])
+  logInternal('sync.queued', { label: item.label, path: item.path })
+}
+
+async function trackedWrite(label, action) {
+  notifySync({ status: 'saving', saving: true, message: 'Salvando...', label })
+  try {
+    const result = await action()
+    notifySync({ status: 'success', saving: false, message: 'Salvo com sucesso', label, pending: readPendingSyncQueue().length })
+    logInternal('write.success', { label })
+    return result
+  } catch (error) {
+    notifySync({ status: 'error', saving: false, message: 'Erro ao salvar', label, pending: readPendingSyncQueue().length })
+    reportError(error, { label })
+    throw error
+  }
+}
+
+export async function flushPendingSync() {
+  const queue = readPendingSyncQueue()
+  if (!queue.length) return { flushed: false, remaining: 0 }
+
+  const remaining = []
+  for (const item of queue) {
+    try {
+      await apiRequest(item.path, item.options)
+      logInternal('sync.flushed', { label: item.label, path: item.path })
+    } catch (error) {
+      remaining.push({ ...item, attempts: Number(item.attempts || 0) + 1, lastError: error.message })
+    }
+  }
+  writePendingSyncQueue(remaining)
+  return { flushed: true, remaining: remaining.length }
+}
 
 if (typeof window !== 'undefined') {
   enableIndexedDbPersistence(db).catch((error) => {
@@ -105,37 +200,55 @@ export async function apiRequest(path, options = {}) {
     headers.set('Authorization', `Bearer ${token}`)
   }
 
+  const method = String(options.method || 'GET').toUpperCase()
+  const maxAttempts = method === 'GET' ? 2 : 3
   let lastError = null
+
   for (const apiUrl of apiUrls) {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000)
-    try {
-      const response = await fetch(`${apiUrl}${path}`, {
-        ...options,
-        headers,
-        signal: options.signal || controller.signal,
-      })
-      const data = await response.json().catch(() => ({}))
-      clearTimeout(timeout)
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 9000)
+      try {
+        const response = await fetch(`${apiUrl}${path}`, {
+          ...options,
+          headers,
+          signal: options.signal || controller.signal,
+        })
+        const data = await response.json().catch(() => ({}))
+        clearTimeout(timeout)
 
-      if (response.ok) return data
+        if (response.ok) {
+          if (method === 'GET') writeApiCache(path, data)
+          return data
+        }
 
-      const error = new Error(data.message || 'Erro na comunicação com o servidor')
-      error.status = response.status
-      lastError = error
+        const error = new Error(data.message || 'Erro na comunicação com o servidor')
+        error.status = response.status
+        lastError = error
 
-      if ([400, 401, 403].includes(response.status)) {
-        throw error
+        if ([400, 401, 403].includes(response.status)) {
+          throw error
+        }
+      } catch (error) {
+        clearTimeout(timeout)
+        lastError = error
+        if (error.status && [400, 401, 403].includes(error.status)) {
+          throw error
+        }
       }
-    } catch (error) {
-      clearTimeout(timeout)
-      lastError = error
-      if (error.status && [400, 401, 403].includes(error.status)) {
-        throw error
-      }
+      if (attempt < maxAttempts) await sleep(350 * attempt)
     }
   }
 
+  if (method === 'GET') {
+    const cached = readApiCache(path)
+    if (cached) {
+      logInternal('api.cache.fallback', { path })
+      return cached
+    }
+  }
+
+  reportError(lastError, { path, method })
   throw lastError || new Error('Erro na comunicação com o servidor')
 }
 
@@ -315,20 +428,24 @@ async function buildSalePayload(data, includeTimestamp = true) {
 }
 
 export async function addVenda(data) {
-  try {
-    return await apiRequest('/api/vendas', {
+  return trackedWrite('venda', async () => {
+    const options = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
-    })
-  } catch (apiError) {
-    console.warn('API indisponível para salvar venda. Salvando direto no Firestore.', apiError)
-    const payload = removeUndefinedFields(await buildSalePayload(data))
-    const ref = await addDoc(vendasCollection, payload)
-    await updateDoc(ref, { id: ref.id, updatedAt: serverTimestamp() })
-    const snap = await getDoc(ref)
-    return serializeClientDoc(snap)
-  }
+    }
+    try {
+      return await apiRequest('/api/vendas', options)
+    } catch (apiError) {
+      console.warn('API indisponível para salvar venda. Salvando direto no Firestore.', apiError)
+      const payload = removeUndefinedFields(await buildSalePayload(data))
+      const ref = await addDoc(vendasCollection, payload)
+      await updateDoc(ref, { id: ref.id, updatedAt: serverTimestamp() })
+      enqueuePendingSync({ label: 'venda', path: '/api/vendas', options })
+      const snap = await getDoc(ref)
+      return serializeClientDoc(snap)
+    }
+  })
 }
 
 export async function getVendas(filter = {}) {
@@ -347,20 +464,24 @@ export async function getVendas(filter = {}) {
 }
 
 export async function updateVenda(id, data) {
-  try {
-    return await apiRequest(`/api/vendas/${id}`, {
+  return trackedWrite('venda', async () => {
+    const options = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
-    })
-  } catch (apiError) {
-    console.warn('API indisponível para atualizar venda. Atualizando Firestore direto.', apiError)
-    const ref = doc(db, 'vendas', id)
-    const payload = removeUndefinedFields(await buildSalePayload(data, false))
-    await updateDoc(ref, payload)
-    const snap = await getDoc(ref)
-    return serializeClientDoc(snap)
-  }
+    }
+    try {
+      return await apiRequest(`/api/vendas/${id}`, options)
+    } catch (apiError) {
+      console.warn('API indisponível para atualizar venda. Atualizando Firestore direto.', apiError)
+      const ref = doc(db, 'vendas', id)
+      const payload = removeUndefinedFields(await buildSalePayload(data, false))
+      await updateDoc(ref, payload)
+      enqueuePendingSync({ label: 'venda', path: `/api/vendas/${id}`, options })
+      const snap = await getDoc(ref)
+      return serializeClientDoc(snap)
+    }
+  })
 }
 
 export async function deleteVenda(id) {
@@ -412,52 +533,63 @@ export async function deleteMeta(id) {
 }
 
 export async function addGoal(data) {
-  const user = auth.currentUser || await waitForAuthUser()
-  const payload = {
-    ...data,
-    userId: data.userId || user?.uid || '',
-    userName: data.userName || user?.displayName || user?.email || '',
-    targetValue: Number(data.targetValue || 0),
-    currentValue: Number(data.currentValue || 0),
-    month: Number(data.month),
-    year: Number(data.year),
-    autoSync: true,
-    manualRealized: false,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }
-  delete payload.actorRole
-  delete payload.skipApiSync
-  delete payload.manualCurrentValue
-  delete payload.manualSalesBaseValue
-  removeUndefinedFields(payload)
+  return trackedWrite('meta', async () => {
+    const user = auth.currentUser || await waitForAuthUser()
+    const payload = {
+      ...data,
+      userId: data.userId || user?.uid || '',
+      userName: data.userName || user?.displayName || user?.email || '',
+      targetValue: Number(data.targetValue || 0),
+      currentValue: Number(data.currentValue || 0),
+      month: Number(data.month),
+      year: Number(data.year),
+      autoSync: true,
+      manualRealized: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+    delete payload.actorRole
+    delete payload.skipApiSync
+    delete payload.manualCurrentValue
+    delete payload.manualSalesBaseValue
+    removeUndefinedFields(payload)
 
-  try {
-    const ref = await addDoc(goalsCollection, payload)
-    await updateDoc(ref, { id: ref.id, updatedAt: serverTimestamp() })
-    if (data.skipApiSync) {
+    try {
+      const ref = await addDoc(goalsCollection, payload)
+      await updateDoc(ref, { id: ref.id, updatedAt: serverTimestamp() })
+      if (data.skipApiSync) {
+        const snap = await getDoc(ref)
+        return serializeClientDoc(snap)
+      }
+      try {
+        return await apiRequest(`/api/goals/${ref.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, id: ref.id }),
+        })
+      } catch (syncError) {
+        enqueuePendingSync({
+          label: 'meta',
+          path: `/api/goals/${ref.id}`,
+          options: {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...data, id: ref.id }),
+          },
+        })
+        console.warn('Meta salva no Firestore, mas a API não recalculou o realizado agora.', syncError)
+      }
       const snap = await getDoc(ref)
       return serializeClientDoc(snap)
-    }
-    try {
-      return await apiRequest(`/api/goals/${ref.id}`, {
-        method: 'PUT',
+    } catch (firestoreError) {
+      console.warn('Não foi possível salvar meta direto no Firestore. Tentando API.', firestoreError)
+      return apiRequest('/api/goals', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, id: ref.id }),
+        body: JSON.stringify(data),
       })
-    } catch (syncError) {
-      console.warn('Meta salva no Firestore, mas a API não recalculou o realizado agora.', syncError)
     }
-    const snap = await getDoc(ref)
-    return serializeClientDoc(snap)
-  } catch (firestoreError) {
-    console.warn('Não foi possível salvar meta direto no Firestore. Tentando API.', firestoreError)
-    return apiRequest('/api/goals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-  }
+  })
 }
 
 export async function getGoals(filter = {}) {
@@ -570,36 +702,61 @@ function fiberRowMatches(row, filters = {}) {
 
 async function getFiberRowsFromFirestore() {
   const rows = []
+  const diagnostics = []
   for (const collectionName of fiberCoverageCollections) {
     try {
       const snap = await getDocs(collection(db, collectionName))
+      diagnostics.push({ collection: collectionName, status: snap.empty ? 'empty' : 'ok', rows: snap.size })
       if (!snap.empty) {
         rows.push(...snap.docs.map(serializeFiberRow))
       }
     } catch (error) {
+      diagnostics.push({ collection: collectionName, status: error?.code || 'error', rows: 0, message: error.message })
       console.warn(`Não foi possível ler ${collectionName} no Firestore.`, error)
+    }
+  }
+  if (rows.length) {
+    writeJsonCache(FIBER_ROWS_CACHE_KEY, { rows, diagnostics, updatedAt: Date.now() })
+  } else {
+    const cached = readJsonCache(FIBER_ROWS_CACHE_KEY)
+    if (cached?.rows?.length) {
+      logInternal('fiber.cache.fallback', { rows: cached.rows.length })
+      return cached.rows
     }
   }
   return rows
 }
 
 export async function getFiberViabilityCities() {
+  const cached = readJsonCache(FIBER_CITIES_CACHE_KEY)
+  if (cached?.cities?.length && Date.now() - Number(cached.updatedAt || 0) < FIBER_CACHE_TTL_MS) {
+    return cached.cities
+  }
+
   try {
     const data = await apiRequest('/api/fiber-viability/cities')
-    if (Array.isArray(data) && data.length) return data
+    if (Array.isArray(data) && data.length) {
+      writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: data, updatedAt: Date.now(), source: 'api' })
+      return data
+    }
   } catch (apiError) {
     console.warn('Não foi possível carregar cidades de fibra pela API. Tentando Firestore.', apiError)
   }
 
   const coverageRows = await getFiberRowsFromFirestore()
   const coverageCities = buildFiberCities(coverageRows)
-  if (coverageCities.length) return coverageCities
+  if (coverageCities.length) {
+    writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: coverageCities, updatedAt: Date.now(), source: 'firestore' })
+    return coverageCities
+  }
 
   const stores = await getStores()
-  return buildFiberCities(stores.map((store) => ({
+  const storeCities = buildFiberCities(stores.map((store) => ({
     city: store.city || store.storeCity || store.cidade,
     uf: store.state || store.storeState || store.uf || store.estado,
   })))
+  writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: storeCities, updatedAt: Date.now(), source: 'stores' })
+  return storeCities
 }
 
 export async function searchFiberViability(filters = {}) {
@@ -622,6 +779,34 @@ export async function searchFiberViability(filters = {}) {
     scannedRows: rows.length,
     limit: 150,
     elapsedMs: 0,
+  }
+}
+
+export async function diagnoseFiberViability() {
+  const diagnostics = []
+  for (const collectionName of fiberCoverageCollections) {
+    try {
+      const snap = await getDocs(collection(db, collectionName))
+      diagnostics.push({
+        collection: collectionName,
+        status: snap.empty ? 'empty' : 'ok',
+        rows: snap.size,
+      })
+    } catch (error) {
+      diagnostics.push({
+        collection: collectionName,
+        status: error?.code === 'permission-denied' ? 'permission-denied' : 'error',
+        rows: 0,
+        message: error.message,
+      })
+    }
+  }
+  const cachedRows = readJsonCache(FIBER_ROWS_CACHE_KEY)?.rows || []
+  return {
+    collections: diagnostics,
+    cachedRows: cachedRows.length,
+    hasData: diagnostics.some((item) => item.rows > 0) || cachedRows.length > 0,
+    checkedAt: new Date().toISOString(),
   }
 }
 
@@ -748,50 +933,61 @@ export function subscribeGoals(filter = {}, onChange, onError) {
 }
 
 export async function updateGoal(id, data) {
-  const ref = doc(db, 'goals', id)
-  const payload = {
-    ...data,
-    targetValue: Number(data.targetValue || 0),
-    currentValue: Number(data.currentValue || 0),
-    month: Number(data.month),
-    year: Number(data.year),
-    autoSync: true,
-    manualRealized: false,
-    updatedAt: serverTimestamp(),
-  }
-  delete payload.id
-  delete payload.createdAt
-  delete payload.actorRole
-  delete payload.skipApiSync
-  delete payload.manualCurrentValue
-  delete payload.manualSalesBaseValue
-  removeUndefinedFields(payload)
+  return trackedWrite('meta', async () => {
+    const ref = doc(db, 'goals', id)
+    const payload = {
+      ...data,
+      targetValue: Number(data.targetValue || 0),
+      currentValue: Number(data.currentValue || 0),
+      month: Number(data.month),
+      year: Number(data.year),
+      autoSync: true,
+      manualRealized: false,
+      updatedAt: serverTimestamp(),
+    }
+    delete payload.id
+    delete payload.createdAt
+    delete payload.actorRole
+    delete payload.skipApiSync
+    delete payload.manualCurrentValue
+    delete payload.manualSalesBaseValue
+    removeUndefinedFields(payload)
 
-  try {
-    await updateDoc(ref, payload)
-    if (data.skipApiSync) {
+    try {
+      await updateDoc(ref, payload)
+      if (data.skipApiSync) {
+        const snap = await getDoc(ref)
+        return serializeClientDoc(snap)
+      }
+      try {
+        return await apiRequest(`/api/goals/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+      } catch (syncError) {
+        enqueuePendingSync({
+          label: 'meta',
+          path: `/api/goals/${id}`,
+          options: {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          },
+        })
+        console.warn('Meta atualizada no Firestore, mas a API não recalculou o realizado agora.', syncError)
+      }
       const snap = await getDoc(ref)
       return serializeClientDoc(snap)
-    }
-    try {
-      return await apiRequest(`/api/goals/${id}`, {
+    } catch (firestoreError) {
+      console.warn('Não foi possível atualizar meta direto no Firestore. Tentando API.', firestoreError)
+      return apiRequest(`/api/goals/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-    } catch (syncError) {
-      console.warn('Meta atualizada no Firestore, mas a API não recalculou o realizado agora.', syncError)
     }
-    const snap = await getDoc(ref)
-    return serializeClientDoc(snap)
-  } catch (firestoreError) {
-    console.warn('Não foi possível atualizar meta direto no Firestore. Tentando API.', firestoreError)
-    return apiRequest(`/api/goals/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-  }
+  })
 }
 
 export async function deleteGoal(id) {

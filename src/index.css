@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --bg: #080d14;
-  --surface: #101821;
-  --surface-2: #15202c;
-  --surface-3: #1c2a38;
-  --border: rgba(226, 232, 240, 0.1);
-  --text: #f8fafc;
-  --muted: #9aa7b8;
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-2: #eef3f9;
+  --surface-3: #e2eaf3;
+  --border: rgba(15, 23, 42, 0.1);
+  --text: #0f172a;
+  --muted: #64748b;
   --accent: #67e8f9;
   --accent-strong: #22d3ee;
   --success: #34d399;
@@ -33,10 +33,18 @@
 
 body {
   min-height: 100vh;
-  background: linear-gradient(180deg, #0a1017 0%, #080d14 54%, #090f13 100%);
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.14), transparent 28rem),
+    linear-gradient(180deg, var(--bg) 0%, var(--surface-2) 100%);
   color: var(--text);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   text-rendering: optimizeLegibility;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 28rem),
+    linear-gradient(180deg, #0a1017 0%, #080d14 54%, #090f13 100%);
 }
 
 ::selection {
@@ -101,19 +109,19 @@ thead {
 
 .bg-gray-900,
 .bg-slate-950 {
-  background-color: #0c131c !important;
+  background-color: var(--surface-2) !important;
 }
 
 .bg-gray-800,
 .bg-slate-900 {
-  background-color: rgba(16, 24, 33, 0.92) !important;
+  background-color: color-mix(in srgb, var(--surface) 92%, transparent) !important;
   border: 1px solid var(--border);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.08);
 }
 
 .bg-gray-700,
 .bg-slate-800 {
-  background-color: rgba(28, 42, 56, 0.92) !important;
+  background-color: color-mix(in srgb, var(--surface-3) 92%, transparent) !important;
 }
 
 .text-gray-400,
@@ -165,4 +173,116 @@ thead {
 .shadow-xl,
 .shadow-2xl {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28) !important;
+}
+
+.dark .bg-gray-900,
+.dark .bg-slate-950 {
+  background-color: #0c131c !important;
+}
+
+.dark .bg-gray-800,
+.dark .bg-slate-900 {
+  background-color: rgba(16, 24, 33, 0.92) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.dark .bg-gray-700,
+.dark .bg-slate-800 {
+  background-color: rgba(28, 42, 56, 0.92) !important;
+}
+
+.crm-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  padding: 1.25rem;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.08);
+}
+
+@media (min-width: 768px) {
+  .crm-page-header {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+}
+
+.crm-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.crm-title {
+  margin-top: 0.25rem;
+  font-size: clamp(1.75rem, 2vw, 2.4rem);
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+.crm-description {
+  margin-top: 0.35rem;
+  max-width: 44rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.crm-metric {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+}
+
+.crm-metric-label {
+  color: color-mix(in srgb, currentColor 70%, transparent);
+  font-size: 0.85rem;
+}
+
+.crm-metric-value {
+  margin-top: 0.25rem;
+  font-size: 1.65rem;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.crm-metric-helper {
+  margin-top: 0.65rem;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+}
+
+.crm-metric-icon {
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.crm-metric-cyan {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(8, 145, 178, 0.08));
+  color: #22d3ee;
+}
+
+.crm-metric-emerald {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.18), rgba(5, 150, 105, 0.08));
+  color: #34d399;
+}
+
+.crm-metric-violet {
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(124, 58, 237, 0.08));
+  color: #a78bfa;
+}
+
+.crm-metric-amber {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(180, 83, 9, 0.08));
+  color: #fbbf24;
 }

@@ -5,13 +5,19 @@ import App from './App'
 import './index.css'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { SyncProvider } from './contexts/SyncContext'
+import { initMonitoring } from './utils/monitoring'
+
+initMonitoring()
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <ThemeProvider>
-          <App />
+          <SyncProvider>
+            <App />
+          </SyncProvider>
         </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>

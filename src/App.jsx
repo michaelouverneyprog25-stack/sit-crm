@@ -5,6 +5,7 @@ import RoleRoute from './components/RoleRoute'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import Spinner from './components/Spinner'
+import ErrorBoundary from './components/ErrorBoundary'
 
 const Login = lazy(() => import('./pages/Login'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
@@ -37,24 +38,26 @@ export default function App(){
       <div className="flex flex-col md:flex-row">
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         <main className="flex-1 p-4 md:p-6 lg:p-8">
-          <Suspense fallback={<RouteLoader />}>
-            <Routes>
-              <Route path="/login" element={<Login/>} />
-              <Route path="/forgot-password" element={<ForgotPassword/>} />
-              <Route path="/" element={<ProtectedRoute><Dashboard/></ProtectedRoute>} />
-              <Route path="/sales" element={<ProtectedRoute><Sales/></ProtectedRoute>} />
-              <Route path="/portabilidades" element={<ProtectedRoute><Portabilidades/></ProtectedRoute>} />
-              <Route path="/users" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente"]}><Users/></RoleRoute>} />
-              <Route path="/stores" element={<RoleRoute allowedRoles={["Administrador","Gestor Master"]}><Stores/></RoleRoute>} />
-              <Route path="/commission-rules" element={<RoleRoute allowedRoles={["Administrador","Gestor Master"]}><CommissionRules/></RoleRoute>} />
-              <Route path="/reports" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Executivo"]}><Reports/></RoleRoute>} />
-              <Route path="/reports/all-sales" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente"]}><AllSalesReport/></RoleRoute>} />
-              <Route path="/goals" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor"]}><Goals/></RoleRoute>} />
-              <Route path="/fiber-viability" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor","Executivo"]}><FiberViability/></RoleRoute>} />
-              <Route path="/fiber-contracts" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor","Executivo"]}><FiberContracts/></RoleRoute>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<RouteLoader />}>
+              <Routes>
+                <Route path="/login" element={<Login/>} />
+                <Route path="/forgot-password" element={<ForgotPassword/>} />
+                <Route path="/" element={<ProtectedRoute><Dashboard/></ProtectedRoute>} />
+                <Route path="/sales" element={<ProtectedRoute><Sales/></ProtectedRoute>} />
+                <Route path="/portabilidades" element={<ProtectedRoute><Portabilidades/></ProtectedRoute>} />
+                <Route path="/users" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente"]}><Users/></RoleRoute>} />
+                <Route path="/stores" element={<RoleRoute allowedRoles={["Administrador","Gestor Master"]}><Stores/></RoleRoute>} />
+                <Route path="/commission-rules" element={<RoleRoute allowedRoles={["Administrador","Gestor Master"]}><CommissionRules/></RoleRoute>} />
+                <Route path="/reports" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Executivo"]}><Reports/></RoleRoute>} />
+                <Route path="/reports/all-sales" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente"]}><AllSalesReport/></RoleRoute>} />
+                <Route path="/goals" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor"]}><Goals/></RoleRoute>} />
+                <Route path="/fiber-viability" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor","Executivo"]}><FiberViability/></RoleRoute>} />
+                <Route path="/fiber-contracts" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor","Executivo"]}><FiberContracts/></RoleRoute>} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

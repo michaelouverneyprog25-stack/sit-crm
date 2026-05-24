@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { BarChart3, Clock3, RefreshCw, ShoppingBag } from 'lucide-react'
 import { getGoalRankings, getGoals, getStores, getUsers, getVendas } from '../firebase/db'
 import { useAuth } from '../contexts/AuthContext'
+import { MetricCard, PageHeader } from '../components/ui'
 
 const SERVICES = [
   'Pós',
@@ -1126,32 +1128,35 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-slate-950">
-        <div className="flex flex-col gap-3 border-b border-white/10 bg-slate-900/80 p-5 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Visão geral</p>
-          <h1 className="mt-1 text-3xl font-semibold">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-400">Acompanhamento de vendas, metas e performance por loja e vendedor.</p>
-        </div>
-        <button onClick={() => loadDashboard()} className="bg-blue-600 px-4 py-2.5 rounded font-semibold">Atualizar</button>
-        </div>
-        <div className="grid gap-3 p-5 md:grid-cols-3">
-          <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
-            <div className="text-sm text-cyan-100">{revenueScopeLabel}</div>
-            <div className="mt-1 text-2xl font-semibold text-white md:text-3xl">R$ {formatNumber(totalRevenue)}</div>
-            <div className="mt-2 text-xs text-cyan-50">Base do mês selecionado</div>
-          </div>
-          <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-4">
-            <div className="text-sm text-emerald-100">Vendas cadastradas</div>
-            <div className="mt-1 text-2xl font-semibold text-white md:text-3xl">{totalSales}</div>
-            <div className="mt-2 text-xs text-emerald-50">{getMonthName(filters.month)} de {filters.year}</div>
-          </div>
-          <div className="rounded-lg border border-violet-300/20 bg-violet-300/10 p-4">
-            <div className="text-sm text-violet-100">Atualização</div>
-            <div className="mt-1 text-2xl font-semibold text-white">{lastUpdated ? lastUpdated.toLocaleTimeString('pt-BR') : '-'}</div>
-            <div className="mt-2 text-xs text-violet-50">automática a cada 30s</div>
-          </div>
-        </div>
+      <PageHeader
+        eyebrow="Visão geral"
+        title="Dashboard executivo"
+        description="Acompanhamento em tempo real de vendas, metas, ranking, projeção e performance por loja e vendedor."
+        action={<button onClick={() => loadDashboard()} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 font-semibold"><RefreshCw className="h-4 w-4" />Atualizar</button>}
+      />
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          label={revenueScopeLabel}
+          value={`R$ ${formatNumber(totalRevenue)}`}
+          helper="Base do mês selecionado"
+          tone="cyan"
+          icon={BarChart3}
+        />
+        <MetricCard
+          label="Vendas cadastradas"
+          value={totalSales}
+          helper={`${getMonthName(filters.month)} de ${filters.year}`}
+          tone="emerald"
+          icon={ShoppingBag}
+        />
+        <MetricCard
+          label="Atualização"
+          value={lastUpdated ? lastUpdated.toLocaleTimeString('pt-BR') : '-'}
+          helper="automática a cada 30s"
+          tone="violet"
+          icon={Clock3}
+        />
       </div>
 
       {authError && <div className="rounded border border-yellow-300/30 bg-yellow-600/20 p-3 text-sm text-yellow-100">{authError}</div>}
