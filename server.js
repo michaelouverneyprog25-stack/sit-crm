@@ -47,7 +47,7 @@ const db = admin.firestore()
 const USER_ROLES = ['Administrador', 'Gestor Master', 'Gerente', 'Vendedor', 'Caixa']
 const MANAGER_ASSIGNABLE_USER_ROLES = ['Vendedor', 'Caixa']
 const USER_MANAGEMENT_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
-const SALES_FULL_ACCESS_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
+const SALES_FULL_ACCESS_ROLES = ['Administrador', 'Gestor Master']
 const AUTH_PROFILE_CACHE_TTL_MS = 5 * 60 * 1000
 const ID_TOKEN_CACHE_TTL_MS = 2 * 60 * 1000
 const AUTH_USERS_CACHE_TTL_MS = 5 * 60 * 1000
@@ -1291,11 +1291,91 @@ function saleBelongsToUser(sale, user) {
     || normalizeText(sale.seller) === userEmail
 }
 
+function getProfileStoreName(profile = {}) {
+  return profile.storeName || profile.store || profile.loja || ''
+}
+
+function saleBelongsToStore(sale, user, usersIndex = null) {
+  const managerStore = normalizeText(getProfileStoreName(user))
+  if (!sale || !managerStore) return false
+  const sellerUser = usersIndex
+    ? usersIndex.byId.get(sale.userId) || usersIndex.byEmail.get(sale.seller) || usersIndex.byEmail.get(sale.userEmail)
+    : null
+  const saleStore = sale.storeName || getProfileStoreName(sellerUser)
+  return normalizeText(saleStore) === managerStore
+}
+
+function canAccessSale(req, sale, usersIndex = null) {
+  if (canViewAllSales(req.actorRole)) return true
+  if (normalizeRole(req.actorRole) === 'Gerente') return saleBelongsToStore(sale, req.currentUser, usersIndex)
+  return saleBelongsToUser(sale, req.currentUser)
+}
+
+function canManageSale(req, sale, usersIndex = null) {
+  return canAccessSale(req, sale, usersIndex)
+}
+
+function buildActorSaleBody(req, fallbackSale = {}) {
+  const role = normalizeRole(req.actorRole)
+  const canUseSubmittedSeller = canViewAllSales(role) || role === 'Gerente'
+  return {
+    ...req.body,
+    seller: canUseSubmittedSeller ? (req.body.seller || fallbackSale.seller || req.currentUser.email || '') : (req.currentUser.email || ''),
+    userId: canUseSubmittedSeller ? (req.body.userId || fallbackSale.userId || req.currentUser.uid || '') : (req.currentUser.uid || ''),
+    userName: canUseSubmittedSeller ? (req.body.userName || fallbackSale.userName || req.currentUser.name || 'Usuário') : (req.currentUser.name || 'Usuário'),
+    userEmail: canUseSubmittedSeller ? (req.body.userEmail || fallbackSale.userEmail || req.currentUser.email || '') : (req.currentUser.email || ''),
+  }
+}
+
 function canAccessGoalPayload(req, goal = {}) {
-  if (canManageUsers(req.actorRole)) return true
+  const role = normalizeRole(req.actorRole)
+  if (['Administrador', 'Gestor Master'].includes(role)) return true
+  if (role === 'Gerente') {
+    const managerStore = normalizeText(getProfileStoreName(req.currentUser))
+    if (!managerStore || goal.groupName || goal.managerId) return false
+    if (goal.storeName) return normalizeText(goal.storeName) === managerStore
+    if (goal.userId) {
+      const user = getLocalUsersList().find((item) => (item.uid || item.id) === goal.userId)
+      return normalizeText(getProfileStoreName(user)) === managerStore
+    }
+    return false
+  }
   return goal.userId === req.currentUser?.uid
     && !goal.storeName
     && !goal.managerId
+}
+
+function filterRowsForManagerStore(rows, currentUser) {
+  const managerStore = normalizeText(getProfileStoreName(currentUser))
+  if (!managerStore) return []
+  return rows.filter((row) => normalizeText(row.name || row.storeName || row.loja) === managerStore)
+}
+
+function filterUsersForManagerStore(users, currentUser) {
+  const managerStore = normalizeText(getProfileStoreName(currentUser))
+  if (!managerStore) return []
+  return users.filter((user) => normalizeText(getProfileStoreName(user)) === managerStore)
+}
+
+function filterGoalsForActor(goals, req) {
+  const role = normalizeRole(req.actorRole)
+  if (['Administrador', 'Gestor Master'].includes(role)) return goals
+  if (role === 'Gerente') {
+    const managerStore = normalizeText(getProfileStoreName(req.currentUser))
+    if (!managerStore) return []
+    const storeUserIds = new Set(
+      getLocalUsersList()
+        .filter((user) => normalizeText(getProfileStoreName(user)) === managerStore)
+        .map((user) => user.uid || user.id)
+        .filter(Boolean),
+    )
+    return goals.filter((goal) => {
+      if (goal.groupName || goal.managerId) return false
+      if (goal.storeName) return normalizeText(goal.storeName) === managerStore
+      return goal.userId && storeUserIds.has(goal.userId)
+    })
+  }
+  return goals.filter((goal) => goal.userId === req.currentUser.uid && !goal.storeName && !goal.groupName)
 }
 
 async function authenticateRequest(req, res, next) {
@@ -2518,11 +2598,12 @@ function filterSalesRows(sales, query, req) {
   const { cpf, seller, userId, userEmail, status, saleType, fromDate, toDate } = query
   const from = fromDate ? new Date(`${fromDate}T00:00:00`) : null
   const to = toDate ? new Date(`${toDate}T23:59:59`) : null
+  const usersIndex = getUsersIndexFromLocal()
 
   return sortSales(sales)
     .filter((sale) => {
       const createdAt = saleCreatedDate(sale)
-      if (!canViewAllSales(req.actorRole) && !saleBelongsToUser(sale, req.currentUser)) return false
+      if (!canAccessSale(req, sale, usersIndex)) return false
       if (cpf && sale.cpf !== cpf) return false
       if (userId || userEmail) {
         const matchesCurrentUser = (userId && sale.userId === userId)
@@ -2965,18 +3046,15 @@ app.get('/api/vendas', async (req, res) => {
 
 app.post('/api/vendas', async (req, res) => {
   try {
-    const requestBody = {
-      ...req.body,
-      seller: canViewAllSales(req.actorRole) ? (req.body.seller || req.currentUser.email || '') : (req.currentUser.email || ''),
-      userId: canViewAllSales(req.actorRole) ? (req.body.userId || req.currentUser.uid || '') : (req.currentUser.uid || ''),
-      userName: canViewAllSales(req.actorRole) ? (req.body.userName || req.currentUser.name || 'Usuário') : (req.currentUser.name || 'Usuário'),
-      userEmail: canViewAllSales(req.actorRole) ? (req.body.userEmail || req.currentUser.email || '') : (req.currentUser.email || ''),
-    }
+    const requestBody = buildActorSaleBody(req)
     const validationError = validateSalePayload(requestBody)
     if (validationError) return res.status(400).json({ message: validationError })
 
     if (isFirestoreQuotaPaused()) {
       const payload = await buildSalePayload(requestBody, true, { local: true })
+      if (!canManageSale(req, payload)) {
+        return res.status(403).json({ message: 'Gerente só pode cadastrar vendas da própria loja.' })
+      }
       const sale = upsertLocalSale({ ...payload, pendingSync: true })
       syncLocalGoals()
       const syncedSale = getLocalSales({ includeDeleted: true }).find((item) => item.id === sale.id) || sale
@@ -2984,6 +3062,9 @@ app.post('/api/vendas', async (req, res) => {
     }
 
     const payload = await buildSalePayload(requestBody)
+    if (!canManageSale(req, payload)) {
+      return res.status(403).json({ message: 'Gerente só pode cadastrar vendas da própria loja.' })
+    }
     const ref = await db.collection('vendas').add(payload)
     let snap = await ref.get()
     let sale = serializeDoc(snap)
@@ -2999,14 +3080,11 @@ app.post('/api/vendas', async (req, res) => {
     res.status(201).json(sale)
   } catch (error) {
     if (rememberQuotaError(error)) {
-      const fallbackBody = {
-        ...req.body,
-        seller: canViewAllSales(req.actorRole) ? (req.body.seller || req.currentUser.email || '') : (req.currentUser.email || ''),
-        userId: canViewAllSales(req.actorRole) ? (req.body.userId || req.currentUser.uid || '') : (req.currentUser.uid || ''),
-        userName: canViewAllSales(req.actorRole) ? (req.body.userName || req.currentUser.name || 'Usuário') : (req.currentUser.name || 'Usuário'),
-        userEmail: canViewAllSales(req.actorRole) ? (req.body.userEmail || req.currentUser.email || '') : (req.currentUser.email || ''),
-      }
+      const fallbackBody = buildActorSaleBody(req)
       const payload = await buildSalePayload(fallbackBody, true, { local: true })
+      if (!canManageSale(req, payload)) {
+        return res.status(403).json({ message: 'Gerente só pode cadastrar vendas da própria loja.' })
+      }
       const sale = upsertLocalSale({ ...payload, pendingSync: true })
       syncLocalGoals()
       const syncedSale = getLocalSales({ includeDeleted: true }).find((item) => item.id === sale.id) || sale
@@ -3024,19 +3102,16 @@ app.put('/api/vendas/:id', async (req, res) => {
       if (!localSale) {
         return res.status(404).json({ message: 'Venda não encontrada.' })
       }
-      if (!canViewAllSales(req.actorRole) && !saleBelongsToUser(localSale, req.currentUser)) {
+      if (!canManageSale(req, localSale)) {
         return res.status(403).json({ message: 'Sem permissão para editar esta venda.' })
       }
-      const requestBody = {
-        ...req.body,
-        seller: canViewAllSales(req.actorRole) ? (req.body.seller || localSale.seller || req.currentUser.email || '') : (req.currentUser.email || ''),
-        userId: canViewAllSales(req.actorRole) ? (req.body.userId || localSale.userId || req.currentUser.uid || '') : (req.currentUser.uid || ''),
-        userName: canViewAllSales(req.actorRole) ? (req.body.userName || localSale.userName || req.currentUser.name || 'Usuário') : (req.currentUser.name || 'Usuário'),
-        userEmail: canViewAllSales(req.actorRole) ? (req.body.userEmail || localSale.userEmail || req.currentUser.email || '') : (req.currentUser.email || ''),
-      }
+      const requestBody = buildActorSaleBody(req, localSale)
       const validationError = validateSalePayload(requestBody)
       if (validationError) return res.status(400).json({ message: validationError })
       const payload = await buildSalePayload(requestBody, false, { local: true })
+      if (!canManageSale(req, { ...localSale, ...payload })) {
+        return res.status(403).json({ message: 'Gerente só pode editar vendas da própria loja.' })
+      }
       const sale = upsertLocalSale({
         ...localSale,
         ...payload,
@@ -3055,21 +3130,18 @@ app.put('/api/vendas/:id', async (req, res) => {
     }
 
     const currentSale = { id: currentSnap.id, ...currentSnap.data() }
-    if (!canViewAllSales(req.actorRole) && !saleBelongsToUser(currentSale, req.currentUser)) {
+    if (!canManageSale(req, currentSale)) {
       return res.status(403).json({ message: 'Sem permissão para editar esta venda.' })
     }
 
-    const requestBody = {
-      ...req.body,
-      seller: canViewAllSales(req.actorRole) ? (req.body.seller || currentSale.seller || req.currentUser.email || '') : (req.currentUser.email || ''),
-      userId: canViewAllSales(req.actorRole) ? (req.body.userId || currentSale.userId || req.currentUser.uid || '') : (req.currentUser.uid || ''),
-      userName: canViewAllSales(req.actorRole) ? (req.body.userName || currentSale.userName || req.currentUser.name || 'Usuário') : (req.currentUser.name || 'Usuário'),
-      userEmail: canViewAllSales(req.actorRole) ? (req.body.userEmail || currentSale.userEmail || req.currentUser.email || '') : (req.currentUser.email || ''),
-    }
+    const requestBody = buildActorSaleBody(req, currentSale)
     const validationError = validateSalePayload(requestBody)
     if (validationError) return res.status(400).json({ message: validationError })
 
     const payload = await buildSalePayload(requestBody, false)
+    if (!canManageSale(req, { ...currentSale, ...payload })) {
+      return res.status(403).json({ message: 'Gerente só pode editar vendas da própria loja.' })
+    }
     await ref.update(payload)
     let snap = await ref.get()
     let sale = serializeDoc(snap)
@@ -3086,6 +3158,9 @@ app.put('/api/vendas/:id', async (req, res) => {
     if (rememberQuotaError(error)) {
       const localSale = getLocalSales({ includeDeleted: true }).find((sale) => sale.id === req.params.id)
       if (!localSale) return res.status(404).json({ message: 'Venda não encontrada no cache local.' })
+      if (!canManageSale(req, localSale)) {
+        return res.status(403).json({ message: 'Sem permissão para editar esta venda.' })
+      }
       const payload = await buildSalePayload({ ...localSale, ...req.body }, false, { local: true })
       const sale = upsertLocalSale({ ...localSale, ...payload, createdAt: localSale.createdAt, pendingSync: true })
       syncLocalGoals()
@@ -3101,7 +3176,7 @@ app.delete('/api/vendas/:id', async (req, res) => {
   try {
     const localSale = getLocalSales({ includeDeleted: true }).find((sale) => sale.id === req.params.id)
     if (isFirestoreQuotaPaused() || localSale) {
-      if (localSale && !canViewAllSales(req.actorRole) && !saleBelongsToUser(localSale, req.currentUser)) {
+      if (localSale && !canManageSale(req, localSale)) {
         return res.status(403).json({ message: 'Sem permissão para excluir esta venda.' })
       }
       removeLocalSale(req.params.id)
@@ -3116,7 +3191,7 @@ app.delete('/api/vendas/:id', async (req, res) => {
     }
 
     const currentSale = { id: currentSnap.id, ...currentSnap.data() }
-    if (!canViewAllSales(req.actorRole) && !saleBelongsToUser(currentSale, req.currentUser)) {
+    if (!canManageSale(req, currentSale)) {
       return res.status(403).json({ message: 'Sem permissão para excluir esta venda.' })
     }
 
@@ -3141,9 +3216,7 @@ app.delete('/api/vendas/:id', async (req, res) => {
 app.get('/api/goals', async (req, res) => {
   try {
     const goals = await getGoalsWithProgress(req.query)
-    const visibleGoals = canManageUsers(req.actorRole)
-      ? goals
-      : goals.filter((goal) => goal.userId === req.currentUser.uid)
+    const visibleGoals = filterGoalsForActor(goals, req)
     res.status(200).json(visibleGoals)
   } catch (error) {
     console.error(error)
@@ -3157,7 +3230,7 @@ app.get('/api/goal-rankings', async (req, res) => {
     if (!month || !year) {
       return res.status(400).json({ message: 'month and year are required' })
     }
-    const goals = await getGoalsWithProgress({ month, year })
+    const goals = filterGoalsForActor(await getGoalsWithProgress({ month, year }), req)
     res.status(200).json(buildGoalRankings(goals, req))
   } catch (error) {
     console.error(error)
@@ -3693,7 +3766,8 @@ app.delete('/api/goals/:id', async (req, res) => {
 app.get('/api/stores', async (req, res) => {
   try {
     if (isFirestoreQuotaPaused() || hasPendingLocalStoreWrites()) {
-      return res.status(200).json(getCombinedLocalStores())
+      const stores = getCombinedLocalStores()
+      return res.status(200).json(normalizeRole(req.actorRole) === 'Gerente' ? filterRowsForManagerStore(stores, req.currentUser) : stores)
     }
 
     const snap = await db.collection('stores').get()
@@ -3715,11 +3789,12 @@ app.get('/api/stores', async (req, res) => {
     const localUserStores = getStoresFromLocalUsers()
     const stores = sortStores(mergeByIdAndName(firestoreStores, [...pendingStores, ...localUserStores]))
     saveLocalStores(stores)
-    res.status(200).json(stores)
+    res.status(200).json(normalizeRole(req.actorRole) === 'Gerente' ? filterRowsForManagerStore(stores, req.currentUser) : stores)
   } catch (error) {
     if (rememberQuotaError(error)) {
       console.warn('Cota do Firestore excedida ao listar lojas. Usando cache local.')
-      return res.status(200).json(getCombinedLocalStores())
+      const stores = getCombinedLocalStores()
+      return res.status(200).json(normalizeRole(req.actorRole) === 'Gerente' ? filterRowsForManagerStore(stores, req.currentUser) : stores)
     }
     console.error(error)
     res.status(500).json({ message: error.message })
@@ -3728,7 +3803,7 @@ app.get('/api/stores', async (req, res) => {
 
 app.post('/api/stores', async (req, res) => {
   try {
-    if (!canManageUsers(req.actorRole || req.body.actorRole)) {
+    if (!['Administrador', 'Gestor Master'].includes(normalizeRole(req.actorRole || req.body.actorRole))) {
       return res.status(403).json({ message: 'Sem permissão para cadastrar lojas.' })
     }
 
@@ -3794,7 +3869,7 @@ app.post('/api/stores', async (req, res) => {
 
 app.put('/api/stores/:id', async (req, res) => {
   try {
-    if (!canManageUsers(req.actorRole || req.body.actorRole)) {
+    if (!['Administrador', 'Gestor Master'].includes(normalizeRole(req.actorRole || req.body.actorRole))) {
       return res.status(403).json({ message: 'Sem permissão para editar lojas.' })
     }
 
@@ -3856,7 +3931,7 @@ app.put('/api/stores/:id', async (req, res) => {
 
 app.delete('/api/stores/:id', async (req, res) => {
   try {
-    if (!canManageUsers(req.actorRole || req.body.actorRole)) {
+    if (!['Administrador', 'Gestor Master'].includes(normalizeRole(req.actorRole || req.body.actorRole))) {
       return res.status(403).json({ message: 'Sem permissão para excluir lojas.' })
     }
 
@@ -3905,7 +3980,7 @@ app.get('/api/users', async (req, res) => {
 
     const localUsers = getLocalUsersList()
     if (localUsers.length) {
-      return res.status(200).json(localUsers)
+      return res.status(200).json(normalizeRole(req.actorRole) === 'Gerente' ? filterUsersForManagerStore(localUsers, req.currentUser) : localUsers)
     }
 
     const authUsers = await listAuthUsersCached()
@@ -3932,11 +4007,12 @@ app.get('/api/users', async (req, res) => {
       })
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
 
-    res.status(200).json(users)
+    res.status(200).json(normalizeRole(req.actorRole) === 'Gerente' ? filterUsersForManagerStore(users, req.currentUser) : users)
   } catch (error) {
     if (rememberQuotaError(error)) {
       console.warn('Cota do Firestore excedida ao listar usuários. Usando cache local.')
-      return res.status(200).json(getLocalUsersList())
+      const users = getLocalUsersList()
+      return res.status(200).json(normalizeRole(req.actorRole) === 'Gerente' ? filterUsersForManagerStore(users, req.currentUser) : users)
     }
     console.error(error)
     res.status(500).json({ message: error.message })
@@ -3948,6 +4024,12 @@ app.get('/api/users/:uid/profile', async (req, res) => {
     const { uid } = req.params
     if (uid !== req.currentUser.uid && !canManageUsers(req.actorRole)) {
       return res.status(403).json({ message: 'Sem permissão para ver este perfil.' })
+    }
+    if (uid !== req.currentUser.uid && normalizeRole(req.actorRole) === 'Gerente') {
+      const user = getLocalUsersList().find((item) => (item.uid || item.id) === uid)
+      if (user && normalizeText(getProfileStoreName(user)) !== normalizeText(getProfileStoreName(req.currentUser))) {
+        return res.status(403).json({ message: 'Gerente só pode acessar usuários da própria loja.' })
+      }
     }
 
     let profile = getLocalUserProfilesMap().get(uid) || {}
@@ -3966,7 +4048,13 @@ app.get('/api/users/:uid/profile', async (req, res) => {
       }
     }
 
-    res.status(200).json(buildUserProfile(authUser, profile))
+    const builtProfile = buildUserProfile(authUser, profile)
+    if (uid !== req.currentUser.uid && normalizeRole(req.actorRole) === 'Gerente'
+      && normalizeText(getProfileStoreName(builtProfile)) !== normalizeText(getProfileStoreName(req.currentUser))) {
+      return res.status(403).json({ message: 'Gerente só pode acessar usuários da própria loja.' })
+    }
+
+    res.status(200).json(builtProfile)
   } catch (error) {
     console.error(error)
     if (error.code === 'auth/user-not-found') {
@@ -3978,7 +4066,11 @@ app.get('/api/users/:uid/profile', async (req, res) => {
 
 app.post('/api/users', async (req, res) => {
   try {
-    const { name, password, role, storeName = '', storeCity = '', storeState = '' } = req.body
+    const { name, password, role } = req.body
+    const actorIsManager = normalizeRole(req.actorRole || req.body.actorRole) === 'Gerente'
+    const storeName = actorIsManager ? getProfileStoreName(req.currentUser) : String(req.body.storeName || '')
+    const storeCity = actorIsManager ? (req.currentUser?.storeCity || '') : String(req.body.storeCity || '')
+    const storeState = actorIsManager ? (req.currentUser?.storeState || '') : String(req.body.storeState || '')
     const email = String(req.body.email || '').trim().toLowerCase()
     const active = req.body.active === undefined ? true : !!req.body.active
     if (!canManageUsers(req.body.actorRole)) {
@@ -3992,6 +4084,9 @@ app.post('/api/users', async (req, res) => {
     const normalizedRole = normalizeRole(role)
     if (!canAssignUserRole(req.body.actorRole, normalizedRole)) {
       return res.status(403).json({ message: 'Gerente só pode cadastrar perfis Vendedor ou Caixa.' })
+    }
+    if (actorIsManager && !storeName) {
+      return res.status(403).json({ message: 'Gerente precisa ter loja vinculada para cadastrar usuários.' })
     }
 
     let user
@@ -4086,7 +4181,11 @@ app.post('/api/users', async (req, res) => {
 app.put('/api/users/:uid', async (req, res) => {
   try {
     const { uid } = req.params
-    const { name, role, active, storeName = '', storeCity = '', storeState = '' } = req.body
+    const { name, role, active } = req.body
+    const actorIsManager = normalizeRole(req.actorRole || req.body.actorRole) === 'Gerente'
+    const storeName = actorIsManager ? getProfileStoreName(req.currentUser) : String(req.body.storeName || '')
+    const storeCity = actorIsManager ? (req.currentUser?.storeCity || '') : String(req.body.storeCity || '')
+    const storeState = actorIsManager ? (req.currentUser?.storeState || '') : String(req.body.storeState || '')
     const email = String(req.body.email || '').trim().toLowerCase()
     if (!canManageUsers(req.body.actorRole)) {
       return res.status(403).json({ message: 'Sem permissão para editar usuários.' })
@@ -4099,6 +4198,15 @@ app.put('/api/users/:uid', async (req, res) => {
     const normalizedRole = normalizeRole(role)
     if (!canAssignUserRole(req.body.actorRole, normalizedRole)) {
       return res.status(403).json({ message: 'Gerente só pode editar perfis Vendedor ou Caixa.' })
+    }
+    if (actorIsManager) {
+      const currentTarget = getLocalUsersList().find((item) => (item.uid || item.id) === uid)
+      if (currentTarget && normalizeText(getProfileStoreName(currentTarget)) !== normalizeText(getProfileStoreName(req.currentUser))) {
+        return res.status(403).json({ message: 'Gerente só pode editar usuários da própria loja.' })
+      }
+      if (!storeName) {
+        return res.status(403).json({ message: 'Gerente precisa ter loja vinculada para editar usuários.' })
+      }
     }
 
     await admin.auth().setCustomUserClaims(uid, { role: normalizedRole })

@@ -2,32 +2,52 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection: only admins or the user themself can read/write their profile
+    // Users collection: admins/masters can see all; managers only see users from their own store.
     match /users/{userId} {
       allow read: if isSignedIn() && (
-        isAdmin() || request.auth.uid == userId || isManager()
+        isAdminOrMaster() ||
+        request.auth.uid == userId ||
+        (isStoreManager() && sameStore(resource.data.storeName))
       );
       allow write: if isSignedIn() && (
-        isAdmin() || request.auth.uid == userId
+        isAdminOrMaster() ||
+        request.auth.uid == userId ||
+        (isStoreManager() && sameStore(request.resource.data.storeName))
       );
     }
 
-    // Vendas collection: sellers can create and read their own, managers/admins can read all
+    // Vendas collection: managers are restricted to their own store; admins/masters can read all.
     match /vendas/{saleId} {
       allow create: if isSignedIn() && (
-        isAdmin() || isManager() || request.resource.data.seller == getUserEmail()
+        isAdminOrMaster() ||
+        (isStoreManager() && sameStore(request.resource.data.storeName)) ||
+        request.resource.data.seller == getUserEmail()
       );
-      allow read: if isSignedIn() && (isAdmin() || isManager() || resource.data.seller == getUserEmail());
-      allow update: if isSignedIn() && (isAdmin() || isManager());
-      allow delete: if isSignedIn() && isAdmin();
+      allow read: if isSignedIn() && (
+        isAdminOrMaster() ||
+        (isStoreManager() && sameStore(resource.data.storeName)) ||
+        resource.data.seller == getUserEmail()
+      );
+      allow update: if isSignedIn() && (
+        isAdminOrMaster() ||
+        (isStoreManager() && sameStore(resource.data.storeName) && sameStore(request.resource.data.storeName))
+      );
+      allow delete: if isSignedIn() && isAdminOrMaster();
     }
 
     // Portabilidades collection: similar access rules for seller operations
     match /portabilidades/{itemId} {
       allow create: if isSignedIn() && request.resource.data.seller == getUserEmail();
-      allow read: if isSignedIn() && (isAdmin() || isManager() || resource.data.seller == getUserEmail());
-      allow update: if isSignedIn() && (isAdmin() || isManager());
-      allow delete: if isSignedIn() && isAdmin();
+      allow read: if isSignedIn() && (
+        isAdminOrMaster() ||
+        (isStoreManager() && sameStore(resource.data.storeName)) ||
+        resource.data.seller == getUserEmail()
+      );
+      allow update: if isSignedIn() && (
+        isAdminOrMaster() ||
+        (isStoreManager() && sameStore(resource.data.storeName) && sameStore(request.resource.data.storeName))
+      );
+      allow delete: if isSignedIn() && isAdminOrMaster();
     }
 
     // Legacy metas collection: authenticated users can read/write while data migrates to goals
@@ -37,19 +57,40 @@ service cloud.firestore {
 
     // Goals collection: persistent CRM goals and realized values
     match /goals/{goalId} {
-      allow create, read, update, delete: if isSignedIn();
+      allow create: if isSignedIn() && (
+        isAdminOrMaster() ||
+        ownsGoal(request.resource.data) ||
+        managerCanAccessGoal(request.resource.data)
+      );
+      allow read: if isSignedIn() && (
+        isAdminOrMaster() ||
+        ownsGoal(resource.data) ||
+        managerCanAccessGoal(resource.data)
+      );
+      allow update: if isSignedIn() && (
+        isAdminOrMaster() ||
+        ownsGoal(resource.data) ||
+        (managerCanAccessGoal(resource.data) && managerCanAccessGoal(request.resource.data))
+      );
+      allow delete: if isSignedIn() && (
+        isAdminOrMaster() ||
+        managerCanAccessGoal(resource.data)
+      );
     }
 
     // Commission rules: upgrade commission table managed by admins
     match /commissionRules/{ruleId} {
-      allow read: if isSignedIn() && (isAdmin() || isManager());
+      allow read: if isSignedIn() && (isAdminOrMaster() || isStoreManager());
       allow create, update, delete: if isSignedIn() && isAdmin();
     }
 
     // Stores: used by goals, reports, user management, and fiber city selectors
     match /stores/{storeId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn() && (isAdmin() || isManager());
+      allow read: if isSignedIn() && (
+        isAdminOrMaster() ||
+        (isStoreManager() && sameStore(resource.data.name))
+      );
+      allow create, update, delete: if isSignedIn() && isAdminOrMaster();
     }
 
     // Fiber viability collections may vary by import/source name. Authenticated users can consult them.
@@ -99,10 +140,41 @@ service cloud.firestore {
       return isSignedIn() && getUserRole() == 'Administrador';
     }
 
-    function isManager() {
+    function isAdminOrMaster() {
       return isSignedIn() && (
-        getUserRole() == 'Gerente' ||
+        getUserRole() == 'Administrador' ||
         getUserRole() == 'Gestor Master'
+      );
+    }
+
+    function isStoreManager() {
+      return isSignedIn() && getUserRole() == 'Gerente';
+    }
+
+    function currentUserProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function currentUserStore() {
+      return currentUserProfile().storeName;
+    }
+
+    function sameStore(storeName) {
+      return storeName is string && currentUserStore() is string && storeName == currentUserStore();
+    }
+
+    function ownsGoal(goal) {
+      return goal.userId == request.auth.uid;
+    }
+
+    function managerCanAccessGoal(goal) {
+      return isStoreManager() && (
+        sameStore(goal.storeName) ||
+        (
+          goal.userId is string &&
+          exists(/databases/$(database)/documents/users/$(goal.userId)) &&
+          get(/databases/$(database)/documents/users/$(goal.userId)).data.storeName == currentUserStore()
+        )
       );
     }
   }
