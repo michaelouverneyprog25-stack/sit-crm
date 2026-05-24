@@ -1354,7 +1354,34 @@ function filterRowsForManagerStore(rows, currentUser) {
 function filterUsersForManagerStore(users, currentUser) {
   const managerStore = normalizeText(getProfileStoreName(currentUser))
   if (!managerStore) return []
-  return users.filter((user) => normalizeText(getProfileStoreName(user)) === managerStore)
+  return users.filter((user) => {
+    const role = normalizeRole(user.role)
+    return !['Administrador', 'Gestor Master'].includes(role)
+      && normalizeText(getProfileStoreName(user)) === managerStore
+  })
+}
+
+async function getUserProfileForPermission(uid) {
+  let profileData = getLocalUserProfilesMap().get(uid) || {}
+  if ((!profileData.uid && !profileData.id) && !isFirestoreQuotaPaused()) {
+    try {
+      const profile = await db.collection('users').doc(uid).get()
+      profileData = profile.exists ? { id: profile.id, ...profile.data() } : profileData
+    } catch (error) {
+      rememberQuotaError(error)
+      console.warn('Não foi possível carregar perfil para validar permissão. Usando cache local.', error.message || error)
+    }
+  }
+  if (!profileData.uid && !profileData.id) {
+    const authUser = await admin.auth().getUser(uid)
+    return buildUserProfile(authUser, profileData)
+  }
+  return buildCachedUserProfile(profileData)
+}
+
+function managerCanAccessUserProfile(manager, profile) {
+  if (['Administrador', 'Gestor Master'].includes(normalizeRole(profile.role))) return false
+  return normalizeText(getProfileStoreName(profile)) === normalizeText(getProfileStoreName(manager))
 }
 
 function filterGoalsForActor(goals, req) {
@@ -4200,9 +4227,9 @@ app.put('/api/users/:uid', async (req, res) => {
       return res.status(403).json({ message: 'Gerente só pode editar perfis Vendedor ou Caixa.' })
     }
     if (actorIsManager) {
-      const currentTarget = getLocalUsersList().find((item) => (item.uid || item.id) === uid)
-      if (currentTarget && normalizeText(getProfileStoreName(currentTarget)) !== normalizeText(getProfileStoreName(req.currentUser))) {
-        return res.status(403).json({ message: 'Gerente só pode editar usuários da própria loja.' })
+      const currentTarget = await getUserProfileForPermission(uid)
+      if (!managerCanAccessUserProfile(req.currentUser, currentTarget)) {
+        return res.status(403).json({ message: 'Gerente só pode editar perfis Vendedor ou Caixa da própria loja.' })
       }
       if (!storeName) {
         return res.status(403).json({ message: 'Gerente precisa ter loja vinculada para editar usuários.' })
@@ -4263,6 +4290,12 @@ app.post('/api/users/:uid/reset-password', async (req, res) => {
     const { password } = req.body
     if (!canManageUsers(req.body.actorRole)) {
       return res.status(403).json({ message: 'Sem permissão para redefinir senha de usuários.' })
+    }
+    if (normalizeRole(req.actorRole || req.body.actorRole) === 'Gerente') {
+      const targetProfile = await getUserProfileForPermission(uid)
+      if (!managerCanAccessUserProfile(req.currentUser, targetProfile)) {
+        return res.status(403).json({ message: 'Gerente só pode redefinir senha de Vendedor ou Caixa da própria loja.' })
+      }
     }
 
     if (password) {

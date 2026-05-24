@@ -11,9 +11,14 @@ const USER_MANAGEMENT_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
 const USER_STATUS_ROLES = ['Administrador', 'Gestor Master']
 const FULL_ROLE_OPTIONS = ['Administrador', 'Gestor Master', 'Gerente', 'Vendedor', 'Caixa']
 const MANAGER_ROLE_OPTIONS = ['Vendedor', 'Caixa']
+const MANAGER_HIDDEN_ROLES = ['Administrador', 'Gestor Master']
 
 function getAssignableRoleOptions(role) {
   return role === 'Gerente' ? MANAGER_ROLE_OPTIONS : FULL_ROLE_OPTIONS
+}
+
+function isProtectedFromManager(user) {
+  return MANAGER_HIDDEN_ROLES.includes(user?.role)
 }
 
 export default function Users(){
@@ -92,6 +97,10 @@ export default function Users(){
   useEffect(()=>{ load({ silent: users.length > 0 || stores.length > 0 }) },[])
 
   function startEdit(u){
+    if (currentUser?.role === 'Gerente' && isProtectedFromManager(u)) {
+      showToast('Gerente não pode editar Administrador ou Gestor Master.', 'error')
+      return
+    }
     setEditing(u.id)
     setForm({name:u.name||'', email:u.email||'', password:'', confirmPassword:'', role:u.role||'Vendedor', active: !(u.disabled === true), storeName:u.storeName||'', storeCity:u.storeCity||'', storeState:u.storeState||'' })
   }
@@ -232,6 +241,10 @@ export default function Users(){
   }
 
   function openResetModal(user){
+    if (currentUser?.role === 'Gerente' && isProtectedFromManager(user)) {
+      showToast('Gerente não pode redefinir senha de Administrador ou Gestor Master.', 'error')
+      return
+    }
     setModal({type:'reset', open:true, user})
     setPassword('')
   }
@@ -302,6 +315,7 @@ export default function Users(){
   const canInactivateUsers = USER_STATUS_ROLES.includes(currentUser?.role)
   const assignableRoleOptions = getAssignableRoleOptions(currentUser?.role)
   const filteredUsers = users.filter((user) => {
+    if (currentUser?.role === 'Gerente' && isProtectedFromManager(user)) return false
     const term = search.trim().toLowerCase()
     if (!term) return true
     return [user.name, user.email, user.role, user.storeName, user.storeCity, user.storeState]

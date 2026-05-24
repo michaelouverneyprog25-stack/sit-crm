@@ -974,6 +974,31 @@ export default function Dashboard() {
     return { averagePercent, achieved, total: activeGoals.length }
   }, [goalRows])
 
+  const sellerPeriodSummary = useMemo(() => {
+    const revenueGoal = goalRows.find((goal) => goal.type === 'Receita Total') || {}
+    const posGoal = goalRows.find((goal) => goal.type === 'Pós') || {}
+    const controlGoal = goalRows.find((goal) => goal.type === 'Controle') || {}
+    const grossTarget = numberValue(posGoal.targetValue) + numberValue(controlGoal.targetValue)
+    const grossCurrent = numberValue(posGoal.currentValue) + numberValue(controlGoal.currentValue)
+    const grossGap = Math.max(0, grossTarget - grossCurrent)
+    return {
+      revenue: {
+        target: numberValue(revenueGoal.targetValue),
+        current: numberValue(revenueGoal.currentValue),
+        gap: Math.max(0, numberValue(revenueGoal.targetValue) - numberValue(revenueGoal.currentValue)),
+        percent: numberValue(revenueGoal.targetValue)
+          ? Math.round((numberValue(revenueGoal.currentValue) / numberValue(revenueGoal.targetValue)) * 100)
+          : 0,
+      },
+      gross: {
+        target: grossTarget,
+        current: grossCurrent,
+        gap: grossGap,
+        percent: grossTarget ? Math.round((grossCurrent / grossTarget) * 100) : 0,
+      },
+    }
+  }, [goalRows])
+
   const sellerRanking = useMemo(() => {
     const grouped = new Map()
     rankingGoals
@@ -1207,6 +1232,47 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {isSeller && (
+        <section className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-5">
+            <div className="text-sm text-cyan-100">Atingimento receita</div>
+            <div className="mt-1 text-3xl font-semibold text-white">{sellerPeriodSummary.revenue.percent}%</div>
+            <div className="mt-3 grid gap-2 text-sm text-cyan-50 sm:grid-cols-3">
+              <div>
+                <div className="text-cyan-100/70">Realizado</div>
+                <div className="font-semibold">{formatGoalValue('Receita Total', sellerPeriodSummary.revenue.current)}</div>
+              </div>
+              <div>
+                <div className="text-cyan-100/70">Meta</div>
+                <div className="font-semibold">{formatGoalValue('Receita Total', sellerPeriodSummary.revenue.target)}</div>
+              </div>
+              <div>
+                <div className="text-cyan-100/70">Gap</div>
+                <div className="font-semibold">{formatGoalValue('Receita Total', sellerPeriodSummary.revenue.gap)}</div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-5">
+            <div className="text-sm text-emerald-100">Atingimento Gross</div>
+            <div className="mt-1 text-3xl font-semibold text-white">{sellerPeriodSummary.gross.percent}%</div>
+            <div className="mt-3 grid gap-2 text-sm text-emerald-50 sm:grid-cols-3">
+              <div>
+                <div className="text-emerald-100/70">Realizado</div>
+                <div className="font-semibold">{formatQuantity(sellerPeriodSummary.gross.current)}</div>
+              </div>
+              <div>
+                <div className="text-emerald-100/70">Meta</div>
+                <div className="font-semibold">{formatQuantity(sellerPeriodSummary.gross.target)}</div>
+              </div>
+              <div>
+                <div className="text-emerald-100/70">Gap</div>
+                <div className="font-semibold">{formatQuantity(sellerPeriodSummary.gross.gap)}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="space-y-4">
         <div className="rounded-lg border border-white/10 bg-gray-800 p-5">
