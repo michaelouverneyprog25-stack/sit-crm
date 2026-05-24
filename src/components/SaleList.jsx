@@ -43,12 +43,15 @@ export default function SaleList({ items, loading = false, onEdit, onDelete }) {
                 <div className="text-sm text-gray-400">{s.sellerName || s.userName || 'Sem vendedor'} — Esteira: {s.status || 'Não'}</div>
                 <div className="text-sm text-gray-400">
                   Tipo: {s.saleType || 'Ativação'}
+                  {s.saleType === 'Aparelhos' && s.deviceSaleMode ? ` — ${s.deviceSaleMode}` : ''}
+                  {s.saleType === 'Upgrade' && s.deviceValue ? ' — com aparelho' : ''}
                   {s.saleType === 'Portabilidade' && s.provisionalNumber ? ` — Provisório: ${s.provisionalNumber}` : ''}
+                  {s.saleType === 'Aparelhos' && s.deviceSaleMode === 'Portabilidade' && s.provisionalNumber ? ` — Provisório: ${s.provisionalNumber}` : ''}
                 </div>
-                {s.saleType === 'Aparelhos' && s.deviceModel && <div className="text-sm text-gray-400">Modelo: {s.deviceModel}</div>}
-                {s.saleType === 'Aparelhos' && s.deviceValue !== '' && s.deviceValue !== undefined && <div className="text-sm text-gray-400">Valor do aparelho: {formatCurrency(s.deviceValue)}</div>}
-                {s.saleType === 'Aparelhos' && s.imei && <div className="text-sm text-gray-400">IMEI: {s.imei}</div>}
-                {s.saleType === 'Aparelhos' && s.deviceOrigin && <div className="text-sm text-gray-400">Origem: {s.deviceOrigin}</div>}
+                {(s.saleType === 'Aparelhos' || (s.saleType === 'Upgrade' && s.deviceValue)) && s.deviceModel && <div className="text-sm text-gray-400">Modelo: {s.deviceModel}</div>}
+                {(s.saleType === 'Aparelhos' || (s.saleType === 'Upgrade' && s.deviceValue)) && s.deviceValue !== '' && s.deviceValue !== undefined && <div className="text-sm text-gray-400">Valor do aparelho: {formatCurrency(s.deviceValue)}</div>}
+                {(s.saleType === 'Aparelhos' || (s.saleType === 'Upgrade' && s.deviceValue)) && s.imei && <div className="text-sm text-gray-400">IMEI: {s.imei}</div>}
+                {(s.saleType === 'Aparelhos' || (s.saleType === 'Upgrade' && s.deviceValue)) && s.deviceOrigin && <div className="text-sm text-gray-400">Origem: {s.deviceOrigin}</div>}
                 {s.saleType === 'Acessórios' && s.accessoryName && <div className="text-sm text-gray-400">Acessório: {s.accessoryName}</div>}
                 {s.saleType === 'Acessórios' && s.accessoryValue !== '' && s.accessoryValue !== undefined && <div className="text-sm text-gray-400">Valor do acessório: {formatCurrency(s.accessoryValue)}</div>}
                 {s.plan && <div className="text-sm text-gray-400">Plano: {s.plan}</div>}

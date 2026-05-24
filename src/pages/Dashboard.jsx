@@ -45,6 +45,12 @@ function formatNumber(value) {
   })
 }
 
+function formatQuantity(value) {
+  return numberValue(value).toLocaleString('pt-BR', {
+    maximumFractionDigits: 0,
+  })
+}
+
 function formatGoalValue(type, value) {
   const formatted = formatNumber(value)
   return MONEY_SERVICES.has(type) ? `R$ ${formatted}` : formatted
@@ -116,6 +122,21 @@ function isDependentSale(sale) {
   return normalizePlan(sale.plan) === 'DEPENDENTE'
 }
 
+function hasDeviceSale(sale) {
+  return sale.saleType === 'Aparelhos'
+    || (sale.saleType === 'Upgrade' && normalize(sale.addDeviceToUpgrade).includes('sim'))
+    || (sale.saleType === 'Upgrade' && Number(sale.deviceValue || 0) > 0)
+}
+
+function hasPortability(sale) {
+  return sale.saleType === 'Portabilidade'
+    || normalize(sale.saleType).includes('portabilidade')
+    || (sale.saleType === 'Aparelhos' && normalize(sale.deviceSaleMode).includes('portabilidade'))
+    || normalize(sale.portability).includes('sim')
+    || normalize(sale.portabilidade).includes('sim')
+    || Boolean(String(sale.provisionalNumber || '').trim())
+}
+
 function getSaleRevenueValue(sale) {
   if (isDependentSale(sale)) return 0
   if (normalize(sale.saleType).includes('acessorio')) return 0
@@ -134,7 +155,8 @@ function getSaleRevenueCategory(sale) {
 }
 
 function getDependentCount(sale) {
-  return Math.max(0, Number(sale.dependentCount ?? sale.dependents ?? 0) || 0)
+  const count = Math.max(0, Number(sale.dependentCount ?? sale.dependents ?? 0) || 0)
+  return count || (isDependentSale(sale) ? 1 : 0)
 }
 
 function getAccessoryValue(sale) {
@@ -163,15 +185,16 @@ function getSaleGoalValue(sale, type) {
     case 'Receita Total':
       return amount
     case 'Aparelhos':
-      return sale.saleType === 'Aparelhos' ? Number(sale.deviceValue || amount || 0) : 0
+      return hasDeviceSale(sale) ? Number(sale.deviceValue || 0) : 0
     case 'Controle':
       return planStartsWith(sale, 'CONTROLE') ? 1 : 0
     case 'Pós':
+      if (isDependentSale(sale)) return getDependentCount(sale) || 1
       return planStartsWith(sale, 'BLACK') ? 1 + getDependentCount(sale) : 0
     case 'Upgrade':
       return sale.saleType === 'Upgrade' ? 1 : 0
     case 'Portabilidade':
-      return sale.saleType === 'Portabilidade' ? 1 : 0
+      return hasPortability(sale) ? 1 : 0
     case 'DACC':
       return sale.dacc === 'Sim' ? 1 : 0
     case 'Fibra':
@@ -309,6 +332,53 @@ function saleInChartPeriod(sale, filters, chartPeriod) {
 function saleInSelectedMonth(sale, filters) {
   const date = getSaleDate(sale)
   return !!date && date.getMonth() + 1 === Number(filters.month) && date.getFullYear() === Number(filters.year)
+}
+
+function getSaleDateTime(sale) {
+  if (sale.saleDate && sale.saleTime) {
+    const time = String(sale.saleTime).slice(0, 5)
+    const date = new Date(`${sale.saleDate}T${time}:00`)
+    if (!Number.isNaN(date.getTime())) return date
+  }
+  if (sale.createdAt?.toDate) return sale.createdAt.toDate()
+  if (sale.createdAt) {
+    const date = new Date(sale.createdAt)
+    if (!Number.isNaN(date.getTime())) return date
+  }
+  return getSaleDate(sale)
+}
+
+function buildHourlyPartialRows(sales) {
+  const rows = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    label: `${String(hour).padStart(2, '0')}h`,
+    gross: 0,
+    portability: 0,
+    fiber: 0,
+    revenue: 0,
+  }))
+
+  sales.forEach((sale) => {
+    const date = getSaleDateTime(sale)
+    if (!date) return
+    const row = rows[date.getHours()]
+    if (!row) return
+    row.gross += getSaleGoalValue(sale, 'Pós') + getSaleGoalValue(sale, 'Controle')
+    row.portability += getSaleGoalValue(sale, 'Portabilidade')
+    row.fiber += getSaleGoalValue(sale, 'Fibra')
+    row.revenue += getSaleGoalValue(sale, 'Receita Total')
+  })
+
+  return rows
+}
+
+function getHourlyPartialTotals(rows) {
+  return rows.reduce((totals, row) => ({
+    gross: totals.gross + row.gross,
+    portability: totals.portability + row.portability,
+    fiber: totals.fiber + row.fiber,
+    revenue: totals.revenue + row.revenue,
+  }), { gross: 0, portability: 0, fiber: 0, revenue: 0 })
 }
 
 function buildEmptySeries(chartPeriod, filters) {
@@ -459,6 +529,69 @@ function CompactColumnChart({ title, subtitle, rows, emptyText }) {
   )
 }
 
+function HourlyPartialTable({ title, subtitle, rows, totals }) {
+  const hasValues = rows.some((row) => row.gross || row.portability || row.fiber || row.revenue)
+
+  return (
+    <section className="rounded-lg border border-white/10 bg-gray-800 p-5">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <div className="text-sm text-gray-400">{subtitle}</div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <div className="rounded border border-white/10 bg-gray-900 px-3 py-2">
+            <div className="text-gray-400">Gross</div>
+            <div className="font-semibold">{formatQuantity(totals.gross)}</div>
+          </div>
+          <div className="rounded border border-white/10 bg-gray-900 px-3 py-2">
+            <div className="text-gray-400">Portabilidade</div>
+            <div className="font-semibold">{formatQuantity(totals.portability)}</div>
+          </div>
+          <div className="rounded border border-white/10 bg-gray-900 px-3 py-2">
+            <div className="text-gray-400">Fibra</div>
+            <div className="font-semibold">{formatQuantity(totals.fiber)}</div>
+          </div>
+          <div className="rounded border border-white/10 bg-gray-900 px-3 py-2">
+            <div className="text-gray-400">Receita</div>
+            <div className="font-semibold">R$ {formatNumber(totals.revenue)}</div>
+          </div>
+        </div>
+      </div>
+      {hasValues ? (
+        <div className="max-h-[460px] overflow-auto rounded border border-white/10">
+          <table className="w-full min-w-[720px] border-collapse text-sm">
+            <thead className="sticky top-0 bg-gray-900 text-left text-xs uppercase text-gray-400">
+              <tr>
+                <th className="p-3">Hora</th>
+                <th className="p-3">Gross</th>
+                <th className="p-3">Portabilidade</th>
+                <th className="p-3">Fibra</th>
+                <th className="p-3">Receita</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.hour} className="border-t border-white/10">
+                  <td className="p-3 font-semibold text-gray-200">{row.label}</td>
+                  <td className="p-3">{formatQuantity(row.gross)}</td>
+                  <td className="p-3">{formatQuantity(row.portability)}</td>
+                  <td className="p-3">{formatQuantity(row.fiber)}</td>
+                  <td className="p-3">R$ {formatNumber(row.revenue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="rounded border border-white/10 bg-gray-900 p-4 text-gray-400">
+          Sem vendas para a parcial hora a hora nesse período.
+        </div>
+      )}
+    </section>
+  )
+}
+
 function getSeriesTotals(rows) {
   return rows.reduce((totals, row) => ({
     amount: totals.amount + numberValue(row.amount),
@@ -514,6 +647,7 @@ export default function Dashboard() {
   const isSeller = currentUserRole === 'Vendedor'
   const isManager = currentUserRole === 'Gerente'
   const canViewStoreComparison = ['Administrador', 'Gestor Master'].includes(currentUserRole)
+  const canViewHourlyPartial = ['Administrador', 'Gestor Master', 'Gerente'].includes(currentUserRole)
   const canSelectScope = !isSeller
   const sellers = users
     .filter((user) => !user.disabled && getUserId(user))
@@ -788,6 +922,13 @@ export default function Dashboard() {
     { label: 'Receita Controle', value: revenueBreakdown.controle },
     { label: 'Receita Fibra', value: revenueBreakdown.fibra },
   ]
+  const hourlyPartialRows = useMemo(() => buildHourlyPartialRows(dashboardPeriodSales), [dashboardPeriodSales])
+  const hourlyPartialTotals = useMemo(() => getHourlyPartialTotals(hourlyPartialRows), [hourlyPartialRows])
+  const hourlyPartialScopeLabel = currentUserRole === 'Gerente'
+    ? `Loja ${getUserStoreName(currentUserProfile) || 'do gerente'}`
+    : currentUserRole === 'Gestor Master'
+      ? 'Todas as lojas cadastradas'
+      : 'Todas as lojas'
 
   const selectedPeriodSales = useMemo(() => {
     return sales
@@ -1000,6 +1141,15 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {canViewHourlyPartial && (
+        <HourlyPartialTable
+          title="Parcial hora a hora"
+          subtitle={`${hourlyPartialScopeLabel} - ${getMonthName(filters.month)} de ${filters.year}`}
+          rows={hourlyPartialRows}
+          totals={hourlyPartialTotals}
+        />
+      )}
 
       <div className="bg-gray-800 p-5 rounded">
         <div className="grid gap-2 md:grid-cols-5">
@@ -1237,23 +1387,25 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="bg-gray-800 rounded p-5">
-          <h2 className="text-xl font-semibold mb-3">Performance recente</h2>
-          <div className="space-y-3">
-            {recent.map((item) => (
-              <div key={item.id} className="p-3 bg-gray-900 rounded border border-white/10 flex justify-between gap-3">
-                <div>
-                  <div className="font-semibold">{item.customer}</div>
-                  <div className="text-sm text-gray-400">{getSaleSellerLabel(item, users)} - {item.saleType || 'Venda'}</div>
+      {currentUserRole !== 'Gestor Master' && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="bg-gray-800 rounded p-5">
+            <h2 className="text-xl font-semibold mb-3">Performance recente</h2>
+            <div className="space-y-3">
+              {recent.map((item) => (
+                <div key={item.id} className="p-3 bg-gray-900 rounded border border-white/10 flex justify-between gap-3">
+                  <div>
+                    <div className="font-semibold">{item.customer}</div>
+                    <div className="text-sm text-gray-400">{getSaleSellerLabel(item, users)} - {item.saleType || 'Venda'}</div>
+                  </div>
+                  <div className="font-semibold">R$ {formatNumber(getSaleRevenueValue(item))}</div>
                 </div>
-                <div className="font-semibold">R$ {formatNumber(getSaleRevenueValue(item))}</div>
-              </div>
-            ))}
-            {!recent.length && <div className="text-gray-400">Sem vendas recentes</div>}
+              ))}
+              {!recent.length && <div className="text-gray-400">Sem vendas recentes</div>}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

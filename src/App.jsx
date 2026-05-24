@@ -45,7 +45,7 @@ export default function App(){
               <Route path="/sales" element={<ProtectedRoute><Sales/></ProtectedRoute>} />
               <Route path="/portabilidades" element={<ProtectedRoute><Portabilidades/></ProtectedRoute>} />
               <Route path="/users" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente"]}><Users/></RoleRoute>} />
-              <Route path="/stores" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente"]}><Stores/></RoleRoute>} />
+              <Route path="/stores" element={<RoleRoute allowedRoles={["Administrador","Gestor Master"]}><Stores/></RoleRoute>} />
               <Route path="/commission-rules" element={<RoleRoute allowedRoles={["Administrador","Gestor Master"]}><CommissionRules/></RoleRoute>} />
               <Route path="/reports" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Executivo"]}><Reports/></RoleRoute>} />
               <Route path="/reports/all-sales" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente"]}><AllSalesReport/></RoleRoute>} />

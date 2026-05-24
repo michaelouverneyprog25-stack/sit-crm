@@ -44,6 +44,8 @@ try {
 
 const db = admin.firestore()
 
+const USER_ROLES = ['Administrador', 'Gestor Master', 'Gerente', 'Vendedor', 'Caixa']
+const MANAGER_ASSIGNABLE_USER_ROLES = ['Vendedor', 'Caixa']
 const USER_MANAGEMENT_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
 const SALES_FULL_ACCESS_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
 const AUTH_PROFILE_CACHE_TTL_MS = 5 * 60 * 1000
@@ -211,7 +213,7 @@ const DEFAULT_STANDARD_COMMISSION_RULES = [
     planoNovo: '*',
     tipoCalculo: 'percentual',
     percentualComissao: 2,
-    percentualLoja: 0,
+    percentualLoja: 1.5,
     percentualLojaMetaBatida: 1.5,
     valorComissao: 0,
     ativo: true,
@@ -539,6 +541,21 @@ function saveLocalSales(sales) {
   writeJsonArray(SALES_CACHE_FILE, sortSales(sales))
 }
 
+function normalizeSaleTime(value) {
+  const match = String(value || '').match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return ''
+  const hour = Math.min(23, Math.max(0, Number(match[1]) || 0))
+  const minute = Math.min(59, Math.max(0, Number(match[2]) || 0))
+  return `${pad2(hour)}:${pad2(minute)}`
+}
+
+function getSaleDateValue(saleDate, saleTime = '') {
+  if (!saleDate) return null
+  const time = normalizeSaleTime(saleTime) || '12:00'
+  const date = new Date(`${saleDate}T${time}:00`)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
 function normalizePlanName(value) {
   return normalizeText(value)
     .replace(/\s*\/\s*/g, '/')
@@ -665,14 +682,19 @@ function seedLocalCommissionRulesIfEmpty() {
 
 function buildLocalSale(data, id = '') {
   const now = new Date().toISOString()
-  const amount = Number(data.amount || data.accessoryValue || data.planValue || 0)
+  const dependentSale = isDependentSale(data)
+  const upgradeSale = data.saleType === 'Upgrade'
+  const amount = dependentSale || upgradeSale ? 0 : Number(data.amount || data.accessoryValue || data.planValue || 0)
+  const saleTime = normalizeSaleTime(data.saleTime)
+  const saleDateValue = getSaleDateValue(data.saleDate, saleTime)
   return {
     ...data,
     id: id || data.id || `local-sale-${Date.now()}`,
     amount,
-    planValue: isAccessorySale(data) ? '' : Number(data.planValue || data.amount || 0),
+    planValue: isAccessorySale(data) ? '' : dependentSale || upgradeSale ? 0 : Number(data.planValue || data.amount || 0),
     dependentCount: getDependentCount(data),
-    createdAt: data.createdAt || (data.saleDate ? new Date(`${data.saleDate}T12:00:00`).toISOString() : now),
+    saleTime,
+    createdAt: data.createdAt || (saleDateValue ? saleDateValue.toISOString() : now),
     updatedAt: data.updatedAt || now,
     pendingSync: data.pendingSync === true,
     pendingDelete: data.pendingDelete === true,
@@ -1083,6 +1105,16 @@ function canManageUsers(role) {
   return USER_MANAGEMENT_ROLES.includes(normalizeRole(role))
 }
 
+function canAssignUserRole(actorRole, targetRole) {
+  const normalizedActorRole = normalizeRole(actorRole)
+  const normalizedTargetRole = normalizeRole(targetRole)
+  if (!USER_ROLES.includes(normalizedTargetRole)) return false
+  if (normalizedActorRole === 'Gerente') {
+    return MANAGER_ASSIGNABLE_USER_ROLES.includes(normalizedTargetRole)
+  }
+  return ['Administrador', 'Gestor Master'].includes(normalizedActorRole)
+}
+
 function canChangeUserAccess(role) {
   return ['Administrador', 'Gestor Master'].includes(normalizeRole(role))
 }
@@ -1209,6 +1241,7 @@ function normalizeRole(value) {
   if (role === 'gestor master' || role === 'gestor marter') return 'Gestor Master'
   if (role === 'gerente') return 'Gerente'
   if (role === 'vendedor') return 'Vendedor'
+  if (role === 'caixa') return 'Caixa'
   if (role === 'executivo') return 'Executivo'
   return value || 'Vendedor'
 }
@@ -1392,6 +1425,12 @@ function isAccessorySale(sale) {
   return includesText(sale.saleType, 'Acessório')
 }
 
+function hasDeviceSale(sale) {
+  return sale.saleType === 'Aparelhos'
+    || (sale.saleType === 'Upgrade' && includesText(sale.addDeviceToUpgrade, 'Sim'))
+    || (sale.saleType === 'Upgrade' && Number(sale.deviceValue || 0) > 0)
+}
+
 function validateSalePayload(data) {
   const { saleDate, customer, cpf, seller, saleType, access, plan, planValue } = data
   if (!saleDate || !customer || !cpf || !seller || !saleType) {
@@ -1405,11 +1444,15 @@ function validateSalePayload(data) {
     return ''
   }
 
-  if (!access || !plan || planValue === '' || planValue === undefined) {
-    return 'access, plan and planValue are required'
+  if (!access || !plan || (saleType !== 'Upgrade' && (planValue === '' || planValue === undefined))) {
+    return saleType === 'Upgrade' ? 'access and plan are required' : 'access, plan and planValue are required'
   }
 
-  if (saleType === 'Aparelhos' && (!data.deviceModel || data.deviceValue === '' || data.deviceValue === undefined || !data.imei || !data.deviceOrigin)) {
+  if (saleType === 'Aparelhos' && data.deviceSaleMode === 'Portabilidade' && !data.provisionalNumber) {
+    return 'provisionalNumber is required for Aparelhos sales with Portabilidade'
+  }
+
+  if (hasDeviceSale(data) && (!data.deviceModel || data.deviceValue === '' || data.deviceValue === undefined || !data.imei || !data.deviceOrigin)) {
     return 'deviceModel, deviceValue, imei and deviceOrigin are required for Aparelhos sales'
   }
 
@@ -1437,7 +1480,8 @@ function isGoalHit(goal) {
 }
 
 function getDependentCount(sale) {
-  return Math.max(0, Number(sale.dependentCount ?? sale.dependents ?? 0) || 0)
+  const count = Math.max(0, Number(sale.dependentCount ?? sale.dependents ?? 0) || 0)
+  return count || (isDependentSale(sale) ? 1 : 0)
 }
 
 function getAccessoryValue(sale) {
@@ -1466,11 +1510,12 @@ function getSaleGoalValue(sale, type) {
     case 'Receita Total':
       return amount
     case 'Aparelhos':
-      return sale.saleType === 'Aparelhos' ? Number(sale.deviceValue || amount || 0) : 0
+      return hasDeviceSale(sale) ? Number(sale.deviceValue || 0) : 0
     case 'Controle':
       return planStartsWith(sale, 'CONTROLE') ? 1 : 0
     case 'Pós':
     case 'Planos Pós':
+      if (isDependentSale(sale)) return getDependentCount(sale)
       return planStartsWith(sale, 'BLACK') ? 1 + getDependentCount(sale) : 0
     case 'Upgrade':
       return sale.saleType === 'Upgrade' ? 1 : 0
@@ -1494,6 +1539,7 @@ function getSaleGoalValue(sale, type) {
 function hasPortability(sale) {
   return sale.saleType === 'Portabilidade'
     || includesText(sale.saleType, 'Portabilidade')
+    || (sale.saleType === 'Aparelhos' && includesText(sale.deviceSaleMode, 'Portabilidade'))
     || includesText(sale.portability, 'Sim')
     || includesText(sale.portabilidade, 'Sim')
     || Boolean(String(sale.provisionalNumber || '').trim())
@@ -1748,7 +1794,7 @@ function getGoalForSale(sale, type, usersIndex, goalIndexes, scope = 'any') {
 function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissionRules = []) {
   const amount = Number(sale.amount || 0)
   const revenueAmount = getSaleRevenueValue(sale)
-  const deviceValue = sale.saleType === 'Aparelhos' ? Number(sale.deviceValue || amount || 0) : 0
+  const deviceValue = hasDeviceSale(sale) ? Number(sale.deviceValue || 0) : 0
   const accessoryValue = getAccessoryValue(sale)
   const insuranceValue = getInsuranceValue(sale)
   const dependentCount = getDependentCount(sale)
@@ -1769,16 +1815,26 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
   const accessoryRate = getCommissionPercent(accessoryRule, isGoalHit(accessoryGoal))
   const insuranceRate = getCommissionPercent(insuranceRule, isGoalHit(insuranceGoal))
   const sellerDeviceRate = getCommissionPercent(deviceRule, false)
-  const storeDeviceRate = getStoreCommissionPercent(deviceRule, isGoalHit(storeDeviceGoal))
 
   const revenueCommission = isUpgradeSale ? 0 : roundMoney(revenueAmount * revenueRate)
   const portabilityCommission = hasPortability(sale) ? (getFixedCommissionValue(portabilityRule) || 2) : 0
   const accessoryCommission = roundMoney(accessoryValue * accessoryRate)
   const sellerDeviceCommission = roundMoney(deviceValue * sellerDeviceRate)
-  const storeDeviceCommission = roundMoney(deviceValue * storeDeviceRate)
-  const dependentCommission = isDependentSale(sale) ? roundMoney(dependentCount * 5) : 0
+  const storeDeviceRateFixed = 0.015
+  const storeDeviceCommission = roundMoney(deviceValue * storeDeviceRateFixed)
+  const dependentCommission = (isDependentSale(sale) || planStartsWith(sale, 'BLACK')) ? roundMoney(dependentCount * 5) : 0
   const upgradeCommission = upgradeRule ? roundMoney(upgradeRule.valorComissao) : 0
   const insuranceCommission = getSaleGoalValue(sale, 'Seguros') > 0 ? roundMoney(insuranceValue * insuranceRate) : 0
+  const storePortabilityCommission = hasPortability(sale) ? 1 : 0
+  const storeCommission = roundMoney(
+    revenueCommission
+    + storePortabilityCommission
+    + accessoryCommission
+    + storeDeviceCommission
+    + dependentCommission
+    + upgradeCommission
+    + insuranceCommission,
+  )
 
   const commission = roundMoney(
     revenueCommission
@@ -1793,7 +1849,7 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
   return {
     commission,
     commissionRate: isUpgradeSale ? 0 : revenueRate,
-    storeCommission: storeDeviceCommission,
+    storeCommission,
     commissionDetails: {
       revenue: {
         base: roundMoney(revenueAmount),
@@ -1806,6 +1862,7 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
         count: hasPortability(sale) ? 1 : 0,
         ruleId: portabilityRule?.id || '',
         amount: portabilityCommission,
+        storeAmount: storePortabilityCommission,
       },
       accessories: {
         base: roundMoney(accessoryValue),
@@ -1818,7 +1875,7 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
         base: roundMoney(deviceValue),
         sellerRate: sellerDeviceRate,
         sellerAmount: sellerDeviceCommission,
-        storeRate: storeDeviceRate,
+        storeRate: storeDeviceRateFixed,
         storeGoalHit: isGoalHit(storeDeviceGoal),
         ruleId: deviceRule?.id || '',
         storeAmount: storeDeviceCommission,
@@ -1834,6 +1891,7 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
       dependents: {
         count: dependentCount,
         amount: dependentCommission,
+        storeAmount: dependentCommission,
       },
       upgrade: {
         previousPlan: sale.previousPlan || '',
@@ -1842,6 +1900,17 @@ function calculateSaleCommission(sale, usersIndex, goalIndexes, upgradeCommissio
         type: upgradeRule?.tipoUpgrade || '',
         category: upgradeRule?.categoria || '',
         amount: upgradeCommission,
+        storeAmount: upgradeCommission,
+      },
+      store: {
+        revenueAmount: revenueCommission,
+        portabilityAmount: storePortabilityCommission,
+        accessoriesAmount: accessoryCommission,
+        devicesAmount: storeDeviceCommission,
+        dependentsAmount: dependentCommission,
+        upgradeAmount: upgradeCommission,
+        insuranceAmount: insuranceCommission,
+        amount: storeCommission,
       },
     },
   }
@@ -2386,14 +2455,17 @@ async function getUserByEmail(email) {
 }
 
 async function buildSalePayload(data, includeTimestamp = true, options = {}) {
-  const amount = Number(data.amount || data.accessoryValue || data.planValue || 0)
+  const dependentSale = isDependentSale(data)
+  const upgradeSale = data.saleType === 'Upgrade'
+  const amount = dependentSale || upgradeSale ? 0 : Number(data.amount || data.accessoryValue || data.planValue || 0)
   const planValue = data.planValue !== undefined && data.planValue !== ''
-    ? Number(data.planValue || 0)
-    : Number(data.amount || 0)
+    ? dependentSale || upgradeSale ? 0 : Number(data.planValue || 0)
+    : upgradeSale ? 0 : Number(data.amount || 0)
   const sellerEmail = data.seller || ''
   const user = await getUserByEmail(sellerEmail)
   const saleDate = data.saleDate || ''
-  const saleDateValue = saleDate ? new Date(`${saleDate}T12:00:00`) : null
+  const saleTime = normalizeSaleTime(data.saleTime)
+  const saleDateValue = getSaleDateValue(saleDate, saleTime)
   const saleDateTimestamp = saleDateValue && !Number.isNaN(saleDateValue.getTime())
     ? admin.firestore.Timestamp.fromDate(saleDateValue)
     : null
@@ -2401,6 +2473,7 @@ async function buildSalePayload(data, includeTimestamp = true, options = {}) {
   const payload = {
     ...data,
     amount,
+    saleTime,
     planValue: isAccessorySale(data) ? '' : Number.isFinite(planValue) ? planValue : 0,
     storeName: data.storeName || user?.storeName || user?.store || user?.loja || '',
     storeCity: data.storeCity || user?.storeCity || user?.city || user?.cidade || '',
@@ -3916,6 +3989,11 @@ app.post('/api/users', async (req, res) => {
       return res.status(400).json({ message: 'name, email, password and role are required' })
     }
 
+    const normalizedRole = normalizeRole(role)
+    if (!canAssignUserRole(req.body.actorRole, normalizedRole)) {
+      return res.status(403).json({ message: 'Gerente só pode cadastrar perfis Vendedor ou Caixa.' })
+    }
+
     let user
     let created = false
     let reusedExisting = false
@@ -3935,8 +4013,6 @@ app.post('/api/users', async (req, res) => {
       user = await admin.auth().getUserByEmail(email)
       reusedExisting = true
     }
-
-    const normalizedRole = normalizeRole(role)
 
     await admin.auth().setCustomUserClaims(user.uid, { role: normalizedRole })
     await admin.auth().updateUser(user.uid, {
@@ -4021,6 +4097,9 @@ app.put('/api/users/:uid', async (req, res) => {
     }
 
     const normalizedRole = normalizeRole(role)
+    if (!canAssignUserRole(req.body.actorRole, normalizedRole)) {
+      return res.status(403).json({ message: 'Gerente só pode editar perfis Vendedor ou Caixa.' })
+    }
 
     await admin.auth().setCustomUserClaims(uid, { role: normalizedRole })
     await admin.auth().updateUser(uid, {

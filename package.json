@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "server": "node server.js",
     "cleanup-data": "node scripts/cleanupData.js",
+    "import-fiber-coverage": "node scripts/importFiberCoverage.js",
     "seed-admin": "node scripts/seedAdmin.js"
   },
   "dependencies": {

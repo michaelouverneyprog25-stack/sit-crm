@@ -27,6 +27,7 @@ export default function Sales() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const canViewAllSales = SALES_FULL_ACCESS_ROLES.includes(currentUser?.role)
+  const canManageSales = currentUser?.role !== 'Gestor Master'
 
   async function load() {
     setError('')
@@ -166,15 +167,22 @@ export default function Sales() {
         <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="h-11 bg-gray-700 px-3 rounded" />
         <button onClick={load} className="h-11 bg-blue-600 px-4 rounded font-semibold">Filtrar</button>
       </div>
-      <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <SaleForm
-          key={editingSale?.id || formVersion}
-          initialData={editingSale}
-          onSave={handleSave}
-          onCancel={() => setEditingSale(null)}
-          submitLabel={editingSale ? 'Atualizar venda' : 'Nova venda'}
+      <div className={canManageSales ? 'grid gap-4 xl:grid-cols-[0.95fr_1.05fr]' : ''}>
+        {canManageSales && (
+          <SaleForm
+            key={editingSale?.id || formVersion}
+            initialData={editingSale}
+            onSave={handleSave}
+            onCancel={() => setEditingSale(null)}
+            submitLabel={editingSale ? 'Atualizar venda' : 'Nova venda'}
+          />
+        )}
+        <SaleList
+          items={displaySales}
+          loading={loading}
+          onEdit={canManageSales ? handleEdit : undefined}
+          onDelete={canManageSales ? handleDelete : undefined}
         />
-        <SaleList items={displaySales} loading={loading} onEdit={handleEdit} onDelete={handleDelete} />
       </div>
     </div>
   )

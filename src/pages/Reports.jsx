@@ -69,9 +69,13 @@ function getSaleDate(sale) {
 }
 
 function getSaleRevenueValue(sale) {
+  if (normalize(sale.plan) === 'dependente') return 0
   if (sale.saleType === 'Upgrade') return 0
   if (normalize(sale.saleType).includes('acessorio')) return 0
-  return Number(sale.amount || 0)
+  const value = sale.planValue !== undefined && sale.planValue !== ''
+    ? Number(sale.planValue || 0)
+    : Number(sale.amount || 0)
+  return Number.isFinite(value) ? value : 0
 }
 
 function getUserForSale(sale, users) {
@@ -113,12 +117,22 @@ export default function Reports() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([getVendas(), getMetas(), getUsers(), getStores()])
-      .then(([salesData, metasData, usersData, storesData]) => {
-        setSales(Array.isArray(salesData) ? salesData : [])
-        setMetas(Array.isArray(metasData) ? metasData : [])
-        setUsers(Array.isArray(usersData) ? usersData : [])
-        setStores(Array.isArray(storesData) ? storesData : [])
+    Promise.allSettled([getVendas(), getMetas(), getUsers(), getStores()])
+      .then(([salesResult, metasResult, usersResult, storesResult]) => {
+        const salesData = salesResult.status === 'fulfilled' && Array.isArray(salesResult.value) ? salesResult.value : []
+        const metasData = metasResult.status === 'fulfilled' && Array.isArray(metasResult.value) ? metasResult.value : []
+        const usersData = usersResult.status === 'fulfilled' && Array.isArray(usersResult.value) ? usersResult.value : []
+        const storesData = storesResult.status === 'fulfilled' && Array.isArray(storesResult.value) ? storesResult.value : []
+        setSales(salesData)
+        setMetas(metasData)
+        setUsers(usersData)
+        setStores(storesData)
+        if (storesResult.status === 'rejected' && !salesData.length && !usersData.length) {
+          setError('Não foi possível carregar as lojas. Verifique a conexão com o Firebase/API.')
+        }
+        if (salesResult.status === 'rejected' || metasResult.status === 'rejected' || usersResult.status === 'rejected') {
+          console.warn('Carregamento parcial dos relatórios:', { salesResult, metasResult, usersResult, storesResult })
+        }
       })
       .catch((err) => {
         console.error('Erro ao carregar relatórios:', err)
@@ -352,7 +366,8 @@ export default function Reports() {
     doc.setFontSize(16)
     doc.text('Relatório SIT', 40, 40)
     doc.setFontSize(10)
-    doc.text(`Filtro: ${filters.scope === 'store' ? 'Loja' : 'Vendedor'} - ${selectedLabel}`, 40, 58)
+    const filterType = filters.scope === 'store' ? 'Loja' : filters.scope === 'group' ? 'Grupo econômico' : 'Vendedor'
+    doc.text(`Filtro: ${filterType} - ${selectedLabel}`, 40, 58)
 
     let cursor = 86
 

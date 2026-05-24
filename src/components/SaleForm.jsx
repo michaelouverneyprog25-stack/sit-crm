@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { apiRequest } from '../firebase/db'
 
 const SALE_TYPES = ['Ativação', 'Migração', 'Portabilidade', 'Upgrade', 'Aparelhos', 'Acessórios', 'Fibra']
+const DEVICE_SALE_MODES = ['Ativação', 'Migração', 'Portabilidade']
 const PLAN_OPTIONS = [
+  'DEPENDENTE',
   'CONTROLE 2.0',
   'CONTROLE PLUS 2.0',
   'CONTROLE PREMIUM 2.0',
@@ -25,41 +27,50 @@ const PLAN_OPTIONS = [
   'Fibra 1GB',
 ]
 
-const emptyForm = {
-  saleDate: new Date().toISOString().slice(0, 10),
-  customer: '',
-  cpf: '',
-  amount: 0,
-  status: 'Não',
-  seller: '',
-  plan: '',
-  saleType: 'Ativação',
-  access: '',
-  planValue: '',
-  previousPlan: '',
-  dacc: 'Não',
-  insurance: 'Não',
-  insuranceValue: '',
-  provisionalNumber: '',
-  deviceModel: '',
-  deviceValue: '',
-  imei: '',
-  deviceOrigin: 'Loja',
-  dependentCount: '',
-  accessoryName: '',
-  accessoryValue: '',
-  fiberCep: '',
-  fiberInstallationAddress: '',
-  fiberInstallationNumber: '',
-  fiberInstallationComplement: '',
-  fiberNeighborhood: '',
-  fiberCity: '',
-  fiberInstallationDate: '',
-  fiberClientContact: '',
-  fiberStatus: 'Aprovisionamento',
-  fiberCompletionDate: '',
-  fiberCancelReason: '',
-  fiberRescheduledDate: '',
+function getCurrentSaleTime() {
+  return new Date().toTimeString().slice(0, 5)
+}
+
+function createEmptyForm() {
+  return {
+    saleDate: new Date().toISOString().slice(0, 10),
+    saleTime: getCurrentSaleTime(),
+    customer: '',
+    cpf: '',
+    amount: 0,
+    status: 'Não',
+    seller: '',
+    plan: '',
+    saleType: 'Ativação',
+    access: '',
+    planValue: '',
+    previousPlan: '',
+    addDeviceToUpgrade: 'Não',
+    deviceSaleMode: 'Ativação',
+    dacc: 'Não',
+    insurance: 'Não',
+    insuranceValue: '',
+    provisionalNumber: '',
+    deviceModel: '',
+    deviceValue: '',
+    imei: '',
+    deviceOrigin: 'Loja',
+    dependentCount: '',
+    accessoryName: '',
+    accessoryValue: '',
+    fiberCep: '',
+    fiberInstallationAddress: '',
+    fiberInstallationNumber: '',
+    fiberInstallationComplement: '',
+    fiberNeighborhood: '',
+    fiberCity: '',
+    fiberInstallationDate: '',
+    fiberClientContact: '',
+    fiberStatus: 'Aprovisionamento',
+    fiberCompletionDate: '',
+    fiberCancelReason: '',
+    fiberRescheduledDate: '',
+  }
 }
 
 function parseCurrencyValue(value) {
@@ -69,18 +80,19 @@ function parseCurrencyValue(value) {
   return Number.isFinite(parsed) ? parsed : ''
 }
 
-function isPostpaidPlan(plan) {
-  return String(plan || '').toUpperCase().startsWith('BLACK')
+function isDependentPlan(plan) {
+  return String(plan || '').toUpperCase() === 'DEPENDENTE'
 }
 
 export default function SaleForm({ initialData = null, onSave, onCancel, submitLabel = 'Salvar' }) {
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState(() => createEmptyForm())
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
     if (initialData) {
       setForm({
         saleDate: initialData.saleDate || '',
+        saleTime: initialData.saleTime || (initialData.createdAt ? new Date(initialData.createdAt).toTimeString().slice(0, 5) : ''),
         customer: initialData.customer || '',
         cpf: initialData.cpf || '',
         amount: initialData.amount || 0,
@@ -91,6 +103,8 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
         access: initialData.access || '',
         planValue: initialData.planValue ?? '',
         previousPlan: initialData.previousPlan || '',
+        addDeviceToUpgrade: initialData.addDeviceToUpgrade || (initialData.saleType === 'Upgrade' && initialData.deviceValue ? 'Sim' : 'Não'),
+        deviceSaleMode: initialData.deviceSaleMode || 'Ativação',
         dacc: initialData.dacc || 'Não',
         insurance: initialData.insurance || initialData.seguro || 'Não',
         insuranceValue: initialData.insuranceValue ?? initialData.seguroValue ?? '',
@@ -116,7 +130,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
         fiberRescheduledDate: initialData.fiberRescheduledDate || '',
       })
     } else {
-      setForm(emptyForm)
+      setForm(createEmptyForm())
     }
     setErrors({})
   }, [initialData])
@@ -134,7 +148,11 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
       ...(name === 'insurance' && value !== 'Sim' ? { insuranceValue: '' } : {}),
       ...(name === 'saleType' && value !== 'Portabilidade' ? { provisionalNumber: '' } : {}),
       ...(name === 'saleType' && value !== 'Upgrade' ? { previousPlan: '' } : {}),
-      ...(name === 'saleType' && value !== 'Aparelhos' ? { deviceModel: '', deviceValue: '', imei: '', deviceOrigin: 'Loja' } : {}),
+      ...(name === 'saleType' && value !== 'Upgrade' ? { addDeviceToUpgrade: 'Não' } : {}),
+      ...(name === 'saleType' && value !== 'Aparelhos' ? { deviceSaleMode: 'Ativação' } : {}),
+      ...(name === 'saleType' && value !== 'Aparelhos' && value !== 'Upgrade' ? { deviceModel: '', deviceValue: '', imei: '', deviceOrigin: 'Loja' } : {}),
+      ...(name === 'addDeviceToUpgrade' && value !== 'Sim' ? { deviceModel: '', deviceValue: '', imei: '', deviceOrigin: 'Loja' } : {}),
+      ...(name === 'deviceSaleMode' && value !== 'Portabilidade' && current.saleType === 'Aparelhos' ? { provisionalNumber: '' } : {}),
       ...(name === 'saleType' && value !== 'Acessórios' ? { accessoryName: '', accessoryValue: '' } : {}),
       ...(name === 'saleType' && value !== 'Fibra' ? {
         fiberCep: '',
@@ -150,7 +168,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
         fiberCancelReason: '',
         fiberRescheduledDate: '',
       } : {}),
-      ...(name === 'plan' && !isPostpaidPlan(value) ? { dependentCount: '' } : {}),
+      ...(name === 'plan' ? { dependentCount: isDependentPlan(value) ? 1 : '' } : {}),
     }))
   }
 
@@ -187,17 +205,19 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
 
     if (!form.customer.trim()) nextErrors.customer = 'Informe o cliente.'
     if (!form.saleDate) nextErrors.saleDate = 'Informe a data.'
+    if (!form.saleTime) nextErrors.saleTime = 'Informe a hora.'
     if (!form.cpf.trim()) nextErrors.cpf = 'Informe o CPF.'
     if (!form.saleType) nextErrors.saleType = 'Selecione a modalidade de venda.'
     if (form.saleType !== 'Acessórios' && !form.access.trim()) nextErrors.access = form.saleType === 'Fibra' ? 'Informe o contrato.' : 'Informe o acesso.'
     if (form.saleType !== 'Acessórios' && !form.plan) nextErrors.plan = 'Selecione o plano.'
-    if (form.saleType !== 'Acessórios' && (form.planValue === '' || parseCurrencyValue(form.planValue) === '')) nextErrors.planValue = 'Informe o valor do plano.'
-    if (form.saleType === 'Portabilidade' && !form.provisionalNumber.trim()) nextErrors.provisionalNumber = 'Informe o número provisório da portabilidade.'
+    if (!isDependentPlan(form.plan) && !['Acessórios', 'Upgrade'].includes(form.saleType) && (form.planValue === '' || parseCurrencyValue(form.planValue) === '')) nextErrors.planValue = 'Informe o valor do plano.'
+    if ((form.saleType === 'Portabilidade' || (form.saleType === 'Aparelhos' && form.deviceSaleMode === 'Portabilidade')) && !form.provisionalNumber.trim()) nextErrors.provisionalNumber = 'Informe o número provisório da portabilidade.'
     if (form.saleType === 'Upgrade' && !form.previousPlan.trim()) nextErrors.previousPlan = 'Informe o plano anterior.'
-    if (form.saleType === 'Aparelhos' && !form.deviceModel.trim()) nextErrors.deviceModel = 'Informe o modelo do aparelho.'
-    if (form.saleType === 'Aparelhos' && (form.deviceValue === '' || parseCurrencyValue(form.deviceValue) === '')) nextErrors.deviceValue = 'Informe o valor do aparelho.'
-    if (form.saleType === 'Aparelhos' && !form.imei.trim()) nextErrors.imei = 'Informe o IMEI.'
-    if (form.saleType === 'Aparelhos' && !form.deviceOrigin) nextErrors.deviceOrigin = 'Selecione Loja ou TIM.'
+    const requiresDeviceFields = form.saleType === 'Aparelhos' || (form.saleType === 'Upgrade' && form.addDeviceToUpgrade === 'Sim')
+    if (requiresDeviceFields && !form.deviceModel.trim()) nextErrors.deviceModel = 'Informe o modelo do aparelho.'
+    if (requiresDeviceFields && (form.deviceValue === '' || parseCurrencyValue(form.deviceValue) === '')) nextErrors.deviceValue = 'Informe o valor do aparelho.'
+    if (requiresDeviceFields && !form.imei.trim()) nextErrors.imei = 'Informe o IMEI.'
+    if (requiresDeviceFields && !form.deviceOrigin) nextErrors.deviceOrigin = 'Selecione Loja ou TIM.'
     if (form.saleType === 'Acessórios' && !form.accessoryName.trim()) nextErrors.accessoryName = 'Informe o nome do acessório.'
     if (form.saleType === 'Acessórios' && (form.accessoryValue === '' || parseCurrencyValue(form.accessoryValue) === '')) nextErrors.accessoryValue = 'Informe o valor do acessório.'
     if (form.insurance === 'Sim' && (form.insuranceValue === '' || parseCurrencyValue(form.insuranceValue) === '')) nextErrors.insuranceValue = 'Informe o valor do seguro.'
@@ -207,7 +227,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
     if (form.saleType === 'Fibra' && !form.fiberCity.trim()) nextErrors.fiberCity = 'Informe um CEP válido para preencher a cidade.'
     if (form.saleType === 'Fibra' && !form.fiberInstallationDate) nextErrors.fiberInstallationDate = 'Informe a data de instalação.'
     if (form.saleType === 'Fibra' && !form.fiberClientContact.trim()) nextErrors.fiberClientContact = 'Informe o contato do cliente.'
-    if (isPostpaidPlan(form.plan) && form.dependentCount !== '' && Number(form.dependentCount) < 0) nextErrors.dependentCount = 'Informe uma quantidade válida de linhas adicionais.'
+    if (isDependentPlan(form.plan) && Number(form.dependentCount || 1) < 1) nextErrors.dependentCount = 'Informe uma quantidade válida de dependentes.'
 
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
@@ -215,21 +235,24 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
     const parsedPlanValue = parseCurrencyValue(form.planValue)
     const parsedAccessoryValue = parseCurrencyValue(form.accessoryValue)
     const parsedInsuranceValue = parseCurrencyValue(form.insuranceValue)
-    const dependentCount = isPostpaidPlan(form.plan) ? Number(form.dependentCount || 0) : 0
+    const dependentCount = isDependentPlan(form.plan) ? Number(form.dependentCount || 1) : 0
 
     onSave({
       ...form,
-      amount: form.saleType === 'Acessórios' ? parsedAccessoryValue : parsedPlanValue,
-      planValue: form.saleType === 'Acessórios' ? '' : parsedPlanValue,
+      amount: isDependentPlan(form.plan) || form.saleType === 'Upgrade' ? 0 : form.saleType === 'Acessórios' ? parsedAccessoryValue : parsedPlanValue,
+      saleTime: form.saleTime,
+      planValue: isDependentPlan(form.plan) || form.saleType === 'Upgrade' ? 0 : form.saleType === 'Acessórios' ? '' : parsedPlanValue,
       dependentCount: Number.isFinite(dependentCount) ? dependentCount : 0,
-      provisionalNumber: form.saleType === 'Portabilidade' ? form.provisionalNumber.trim() : '',
+      provisionalNumber: form.saleType === 'Portabilidade' || (form.saleType === 'Aparelhos' && form.deviceSaleMode === 'Portabilidade') ? form.provisionalNumber.trim() : '',
       previousPlan: form.saleType === 'Upgrade' ? form.previousPlan.trim() : '',
+      addDeviceToUpgrade: form.saleType === 'Upgrade' ? form.addDeviceToUpgrade : 'Não',
+      deviceSaleMode: form.saleType === 'Aparelhos' ? form.deviceSaleMode : '',
       insurance: form.insurance,
       insuranceValue: form.insurance === 'Sim' ? parsedInsuranceValue : '',
-      deviceModel: form.saleType === 'Aparelhos' ? form.deviceModel.trim() : '',
-      deviceValue: form.saleType === 'Aparelhos' ? parseCurrencyValue(form.deviceValue) : '',
-      imei: form.saleType === 'Aparelhos' ? form.imei.trim() : '',
-      deviceOrigin: form.saleType === 'Aparelhos' ? form.deviceOrigin : '',
+      deviceModel: requiresDeviceFields ? form.deviceModel.trim() : '',
+      deviceValue: requiresDeviceFields ? parseCurrencyValue(form.deviceValue) : '',
+      imei: requiresDeviceFields ? form.imei.trim() : '',
+      deviceOrigin: requiresDeviceFields ? form.deviceOrigin : '',
       accessoryName: form.saleType === 'Acessórios' ? form.accessoryName.trim() : '',
       accessoryValue: form.saleType === 'Acessórios' ? parsedAccessoryValue : '',
       fiberCep: form.saleType === 'Fibra' ? form.fiberCep : '',
@@ -259,6 +282,8 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
       </div>
       <input name="saleDate" type="date" value={form.saleDate} onChange={change} className={`${fieldClass} mb-2`} />
       {errors.saleDate && <div className={errorClass}>{errors.saleDate}</div>}
+      <input name="saleTime" type="time" value={form.saleTime} onChange={change} className={`${fieldClass} mb-2`} />
+      {errors.saleTime && <div className={errorClass}>{errors.saleTime}</div>}
       <input name="customer" placeholder="Cliente" value={form.customer} onChange={change} className={`${fieldClass} mb-2`} />
       {errors.customer && <div className={errorClass}>{errors.customer}</div>}
       <input name="cpf" placeholder="CPF" value={form.cpf} onChange={change} className={`${fieldClass} mb-2`} />
@@ -285,6 +310,25 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
           {errors.provisionalNumber && <div className={errorClass}>{errors.provisionalNumber}</div>}
         </>
       )}
+      {form.saleType === 'Aparelhos' && (
+        <>
+          <select name="deviceSaleMode" value={form.deviceSaleMode} onChange={change} className={`${fieldClass} mb-2`}>
+            {DEVICE_SALE_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+          </select>
+          {form.deviceSaleMode === 'Portabilidade' && (
+            <>
+              <input
+                name="provisionalNumber"
+                placeholder="Número provisório"
+                value={form.provisionalNumber}
+                onChange={change}
+                className={`${fieldClass} mb-2`}
+              />
+              {errors.provisionalNumber && <div className={errorClass}>{errors.provisionalNumber}</div>}
+            </>
+          )}
+        </>
+      )}
       {form.saleType !== 'Acessórios' && (
         <>
           <select name="plan" value={form.plan} onChange={change} className={`${fieldClass} mb-2`}>
@@ -294,22 +338,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
           {errors.plan && <div className={errorClass}>{errors.plan}</div>}
         </>
       )}
-      {form.saleType !== 'Acessórios' && isPostpaidPlan(form.plan) && (
-        <>
-          <input
-            name="dependentCount"
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Linhas adicionais do Pós"
-            value={form.dependentCount}
-            onChange={change}
-            className={`${fieldClass} mb-2`}
-          />
-          {errors.dependentCount && <div className={errorClass}>{errors.dependentCount}</div>}
-        </>
-      )}
-      {form.saleType !== 'Acessórios' && (
+      {form.saleType !== 'Acessórios' && form.saleType !== 'Upgrade' && !isDependentPlan(form.plan) && (
         <>
           <input
             name="planValue"
@@ -429,9 +458,13 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
         <>
           <input name="previousPlan" placeholder="Plano anterior" value={form.previousPlan} onChange={change} className={`${fieldClass} mb-2`} />
           {errors.previousPlan && <div className={errorClass}>{errors.previousPlan}</div>}
+          <select name="addDeviceToUpgrade" value={form.addDeviceToUpgrade} onChange={change} className={`${fieldClass} mb-2`}>
+            <option value="Não">Adicionar aparelho: Não</option>
+            <option value="Sim">Adicionar aparelho: Sim</option>
+          </select>
         </>
       )}
-      {form.saleType === 'Aparelhos' && (
+      {(form.saleType === 'Aparelhos' || (form.saleType === 'Upgrade' && form.addDeviceToUpgrade === 'Sim')) && (
         <>
           <input name="deviceModel" placeholder="Modelo" value={form.deviceModel} onChange={change} className={`${fieldClass} mb-2`} />
           {errors.deviceModel && <div className={errorClass}>{errors.deviceModel}</div>}

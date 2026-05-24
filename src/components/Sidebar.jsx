@@ -6,7 +6,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
   const { currentUser } = useAuth()
   const role = currentUser?.role || '—'
   const canManageUsers = ['Administrador','Gestor Master','Gerente'].includes(role)
-  const canManageStores = ['Administrador','Gestor Master','Gerente'].includes(role)
+  const canManageStores = ['Administrador','Gestor Master'].includes(role)
   const canManageCommissionRules = ['Administrador','Gestor Master'].includes(role)
   const canViewReports = ['Administrador','Gestor Master','Gerente','Executivo'].includes(role)
   const canViewAllSalesReport = ['Administrador','Gestor Master','Gerente'].includes(role)

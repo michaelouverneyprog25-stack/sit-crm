@@ -46,8 +46,13 @@ function firstFilled(...values) {
 }
 
 function getSaleRevenueValue(sale) {
+  if (normalize(sale.plan) === 'dependente') return 0
+  if (normalize(sale.saleType).includes('acessorio')) return 0
   if (sale.saleType === 'Upgrade') return 0
-  return Number(sale.amount || 0)
+  const value = sale.planValue !== undefined && sale.planValue !== ''
+    ? Number(sale.planValue || 0)
+    : Number(sale.amount || 0)
+  return Number.isFinite(value) ? value : 0
 }
 
 function normalize(value) {

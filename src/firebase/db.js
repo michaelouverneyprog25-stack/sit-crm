@@ -226,23 +226,60 @@ export function getCommissionRate(role) {
 function hasPortability(data = {}) {
   return data.saleType === 'Portabilidade'
     || normalizeText(data.saleType).includes('portabilidade')
+    || (data.saleType === 'Aparelhos' && normalizeText(data.deviceSaleMode).includes('portabilidade'))
     || normalizeText(data.portability) === 'sim'
     || normalizeText(data.portabilidade) === 'sim'
     || Boolean(String(data.provisionalNumber || '').trim())
 }
 
+function normalizeSaleText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase()
+}
+
+function isDependentSale(data = {}) {
+  return normalizeSaleText(data.plan) === 'DEPENDENTE'
+}
+
+function hasDeviceSale(data = {}) {
+  return data.saleType === 'Aparelhos'
+    || (data.saleType === 'Upgrade' && normalizeText(data.addDeviceToUpgrade) === 'sim')
+    || (data.saleType === 'Upgrade' && Number(data.deviceValue || 0) > 0)
+}
+
+function getDependentCount(data = {}) {
+  const count = Math.max(0, Number(data.dependentCount ?? data.dependents ?? 0) || 0)
+  return count || (isDependentSale(data) ? 1 : 0)
+}
+
 async function buildSalePayload(data, includeTimestamp = true) {
-  const amount = Number(data.amount || 0)
+  const upgradeSale = data.saleType === 'Upgrade'
+  const amount = upgradeSale ? 0 : Number(data.amount || 0)
   const planValue = data.saleType === 'Upgrade'
     ? 0
-    : Number(data.planValue !== undefined && data.planValue !== '' ? data.planValue : amount)
+    : isDependentSale(data)
+      ? 0
+      : Number(data.planValue !== undefined && data.planValue !== '' ? data.planValue : amount)
   const commissionRate = data.saleType === 'Upgrade' ? 0 : 0.05
   const portabilityCommission = hasPortability(data) ? 2 : 0
+  const dependentCommission = getDependentCount(data) * 5
+  const storePortabilityCommission = hasPortability(data) ? 1 : 0
+  const sellerDeviceCommission = hasDeviceSale(data)
+    ? Number((Number(data.deviceValue || amount || 0) * 0.02).toFixed(2))
+    : 0
+  const storeDeviceCommission = hasDeviceSale(data)
+    ? Number((Number(data.deviceValue || amount || 0) * 0.015).toFixed(2))
+    : 0
   const payload = {
     ...data,
-    amount,
+    amount: isDependentSale(data) ? 0 : amount,
+    dependentCount: getDependentCount(data),
     commissionRate,
-    commission: Number(((planValue * commissionRate) + portabilityCommission).toFixed(2)),
+    commission: Number(((planValue * commissionRate) + portabilityCommission + dependentCommission + sellerDeviceCommission).toFixed(2)),
+    storeCommission: Number(((planValue * commissionRate) + storePortabilityCommission + dependentCommission + storeDeviceCommission).toFixed(2)),
     commissionDetails: {
       ...(data.commissionDetails || {}),
       revenue: {
@@ -253,6 +290,19 @@ async function buildSalePayload(data, includeTimestamp = true) {
       portability: {
         count: hasPortability(data) ? 1 : 0,
         amount: portabilityCommission,
+        storeAmount: storePortabilityCommission,
+      },
+      dependents: {
+        count: getDependentCount(data),
+        amount: dependentCommission,
+        storeAmount: dependentCommission,
+      },
+      devices: {
+        base: Number(data.deviceValue || 0),
+        sellerRate: 0.02,
+        sellerAmount: sellerDeviceCommission,
+        storeRate: 0.015,
+        storeAmount: storeDeviceCommission,
       },
     },
   }

@@ -15,6 +15,7 @@ function normalizeRole(value) {
   if (role === 'gestor master' || role === 'gestor marter') return 'Gestor Master'
   if (role === 'gerente') return 'Gerente'
   if (role === 'vendedor') return 'Vendedor'
+  if (role === 'caixa') return 'Caixa'
   if (role === 'executivo') return 'Executivo'
   return value || 'Vendedor'
 }

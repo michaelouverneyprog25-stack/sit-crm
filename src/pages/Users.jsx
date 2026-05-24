@@ -9,6 +9,12 @@ import { CACHE_KEYS, readArrayCache, sortByName, writeArrayCache } from '../util
 
 const USER_MANAGEMENT_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
 const USER_STATUS_ROLES = ['Administrador', 'Gestor Master']
+const FULL_ROLE_OPTIONS = ['Administrador', 'Gestor Master', 'Gerente', 'Vendedor', 'Caixa']
+const MANAGER_ROLE_OPTIONS = ['Vendedor', 'Caixa']
+
+function getAssignableRoleOptions(role) {
+  return role === 'Gerente' ? MANAGER_ROLE_OPTIONS : FULL_ROLE_OPTIONS
+}
 
 export default function Users(){
   const { currentUser } = useAuth() || {}
@@ -133,7 +139,9 @@ export default function Users(){
       if(form.password !== form.confirmPassword) errs.confirmPassword = 'Confirmação de senha não confere'
     }
     const roles = validationRules.roles
+    const assignableRoles = getAssignableRoleOptions(currentUser?.role)
     if(!roles.includes(form.role)) errs.role = 'Perfil inválido'
+    if(!assignableRoles.includes(form.role)) errs.role = 'Gerente só pode cadastrar ou editar perfis Vendedor ou Caixa'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -292,6 +300,7 @@ export default function Users(){
 
   const canManageUserStatus = USER_MANAGEMENT_ROLES.includes(currentUser?.role)
   const canInactivateUsers = USER_STATUS_ROLES.includes(currentUser?.role)
+  const assignableRoleOptions = getAssignableRoleOptions(currentUser?.role)
   const filteredUsers = users.filter((user) => {
     const term = search.trim().toLowerCase()
     if (!term) return true
@@ -333,11 +342,14 @@ export default function Users(){
             </>
           )}
           <select name="role" value={form.role} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded">
-            <option>Administrador</option>
-            <option>Gestor Master</option>
-            <option>Gerente</option>
-            <option>Vendedor</option>
+            {form.role && !assignableRoleOptions.includes(form.role) && (
+              <option value={form.role} disabled>{form.role}</option>
+            )}
+            {assignableRoleOptions.map((role) => (
+              <option key={role}>{role}</option>
+            ))}
           </select>
+          {errors.role && <div className="text-sm text-red-500 mb-2">{errors.role}</div>}
           {form.role !== 'Gestor Master' && (
             <>
               <select name="storeName" value={form.storeName} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded">
