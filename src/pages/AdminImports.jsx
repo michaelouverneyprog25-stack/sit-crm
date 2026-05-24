@@ -15,6 +15,7 @@ import {
 import { importBaseRows, subscribeImportHistory } from '../firebase/db'
 import { useAuth } from '../contexts/AuthContext'
 import { MetricCard, PageHeader, SkeletonRows } from '../components/ui'
+import { reportError } from '../utils/operationLog'
 
 const ACCEPTED_EXTENSIONS = ['xlsx', 'xls', 'csv']
 const PAGE_SIZE = 8
@@ -345,6 +346,7 @@ export default function AdminImports() {
         : 'Todas as linhas foram removidas por erro, vazio ou duplicidade.')
       setPage(1)
     } catch (error) {
+      reportError(error, { source: 'AdminImports', action: 'processar planilha', module: 'importacao excel', severity: 'medio', autoFix: true })
       setStatus('Erro ao importar')
       setMessage(error.message || 'Não foi possível processar a planilha.')
       setProgress(0)
@@ -377,6 +379,7 @@ export default function AdminImports() {
       setStatus('Base atualizada com sucesso')
       setMessage(`${result.importedRows} registro(s) salvo(s) em ${targetConfigs[target].collectionLabel}.`)
     } catch (error) {
+      reportError(error, { source: 'AdminImports', action: 'salvar importacao', module: 'importacao excel', severity: 'critico', autoFix: true })
       setStatus('Erro ao importar')
       setMessage(error.message || 'Não foi possível salvar no Firestore.')
       setProgress(70)

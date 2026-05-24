@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { auth } from '../firebase/auth'
 import { onAuthStateChanged } from 'firebase/auth'
 import { getUserProfile } from '../firebase/db'
+import { reportError } from '../utils/operationLog'
 
 const AuthContext = createContext()
 
@@ -47,7 +48,7 @@ export function AuthProvider({ children }) {
         try {
           profile = await getUserProfile(user.uid)
         } catch (error) {
-          console.error('Erro ao carregar perfil do usuário:', error)
+          reportError(error, { source: 'AuthContext', action: 'carregar perfil', module: 'login', autoFix: true })
           setAuthError('Não foi possível carregar o perfil completo. Usando dados da autenticação.')
         }
 
@@ -64,7 +65,7 @@ export function AuthProvider({ children }) {
 
         setCurrentUser(merged)
       } catch (error) {
-        console.error('Erro ao restaurar sessão:', error)
+        reportError(error, { source: 'AuthContext', action: 'restaurar sessao', module: 'login', severity: 'critico', autoFix: false })
         setCurrentUser(null)
         setAuthError('Não foi possível restaurar sua sessão. Faça login novamente.')
       } finally {

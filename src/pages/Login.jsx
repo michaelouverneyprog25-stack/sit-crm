@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { login } from '../firebase/auth'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
+import { reportError } from '../utils/operationLog'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -32,7 +33,7 @@ export default function Login() {
       await login(email.trim().toLowerCase(), password)
       navigate(location.state?.from?.pathname || '/', { replace: true })
     } catch (err) {
-      console.error('Erro ao autenticar:', err)
+      reportError(err, { source: 'Login', action: 'autenticar usuario', module: 'login', userEmail: email.trim().toLowerCase(), autoFix: false })
       setError(getLoginErrorMessage(err))
     }
   }

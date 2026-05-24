@@ -1,4 +1,5 @@
 import { captureMonitoringError } from './monitoring'
+import { attemptClientRecovery, reportSystemError } from './systemErrorReporter'
 
 const LOG_KEY = 'sit.internalLogs'
 const MAX_LOGS = 120
@@ -47,5 +48,13 @@ export function reportError(error, context = {}) {
   }
   logInternal('error', details)
   captureMonitoringError(error, context)
+  reportSystemError(error, context)
+    .then(() => {
+      if (context.autoFix === true) return attemptClientRecovery({ severity: context.severity })
+      return null
+    })
+    .catch((reportError) => {
+      console.warn('[SIT] Não foi possível enviar erro para o suporte.', reportError)
+    })
   console.error('[SIT]', details.message, details)
 }

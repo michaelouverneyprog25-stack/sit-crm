@@ -21,6 +21,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { app } from './app'
 import { auth } from './auth'
 import { logInternal, reportError } from '../utils/operationLog'
+import { attemptClientRecovery } from '../utils/systemErrorReporter'
 
 const db = getFirestore(app)
 
@@ -31,6 +32,7 @@ const usersCollection = collection(db, 'users')
 const storesCollection = collection(db, 'stores')
 const commissionRulesCollection = collection(db, 'commissionRules')
 const importHistoryCollection = collection(db, 'importHistory')
+const systemErrorsCollection = collection(db, 'system_errors')
 const fiberCoverageCollections = [
   'viabilidade_fibra',
   'fiberCoverage',
@@ -121,7 +123,7 @@ async function trackedWrite(label, action) {
     return result
   } catch (error) {
     notifySync({ status: 'error', saving: false, message: 'Erro ao salvar', label, pending: readPendingSyncQueue().length })
-    reportError(error, { label })
+    reportError(error, { label, module: label, action: 'salvar', autoFix: true })
     throw error
   }
 }
@@ -259,7 +261,7 @@ export async function apiRequest(path, options = {}) {
     }
   }
 
-  reportError(lastError, { path, method })
+  reportError(lastError, { path, method, module: 'api', action: method === 'GET' ? 'consultar dados' : 'salvar dados', autoFix: method !== 'GET' })
   throw lastError || new Error('Erro na comunicação com o servidor')
 }
 
@@ -920,6 +922,32 @@ export function subscribeImportHistory(onChange, onError) {
   return onSnapshot(query(importHistoryCollection, orderBy('createdAt', 'desc')), (snap) => {
     onChange(snap.docs.map(serializeClientDoc))
   }, onError)
+}
+
+export function subscribeSystemErrors(onChange, onError) {
+  return onSnapshot(query(systemErrorsCollection, orderBy('createdAt', 'desc')), (snap) => {
+    onChange(snap.docs.map(serializeClientDoc))
+  }, onError)
+}
+
+export async function updateSystemError(id, data) {
+  const ref = doc(db, 'system_errors', id)
+  await updateDoc(ref, removeUndefinedFields({
+    ...data,
+    updatedAt: serverTimestamp(),
+  }))
+}
+
+export async function retrySystemErrorRecovery(errorRecord) {
+  const result = await attemptClientRecovery(errorRecord)
+  await updateSystemError(errorRecord.id, {
+    status: result.status,
+    autoFixAttempted: true,
+    autoFixStatus: result.autoFixStatus,
+    autoFixMessage: result.autoFixMessage,
+    lastAutoFixAt: new Date().toISOString(),
+  })
+  return result
 }
 
 export async function importBaseRows({

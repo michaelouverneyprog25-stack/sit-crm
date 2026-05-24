@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { BarChart3, Building2, ClipboardList, Database, FileSpreadsheet, Goal, Gauge, ReceiptText, ShoppingCart, Smartphone, Users } from 'lucide-react'
+import { Activity, BarChart3, Building2, ClipboardList, Database, FileSpreadsheet, Goal, Gauge, LifeBuoy, ReceiptText, SearchCheck, ShoppingCart, Smartphone, TerminalSquare, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }){
@@ -29,10 +29,19 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
     { to: '/fiber-contracts', label: 'Contratos fibra', icon: ClipboardList, show: canViewFiberViability, end: true },
     { to: '/admin/imports', label: 'Importação de Base', icon: Database, show: canManageImports, end: true, group: 'Administração' },
     { to: '/admin/spreadsheets', label: 'Gestão de Planilhas', icon: FileSpreadsheet, show: canManageImports, end: true, group: 'Administração' },
+    { to: '/admin/support', label: 'Suporte', icon: LifeBuoy, show: canManageImports, end: true, group: 'Suporte' },
+    { to: '/admin/errors', label: 'Monitoramento de Erros', icon: Activity, show: canManageImports, end: true, group: 'Suporte' },
+    { to: '/admin/logs', label: 'Logs do Sistema', icon: TerminalSquare, show: canManageImports, end: true, group: 'Suporte' },
+    { to: '/admin/diagnostics', label: 'Diagnóstico Automático', icon: SearchCheck, show: canManageImports, end: true, group: 'Suporte' },
   ].filter((item) => item.show)
 
   const standardNavItems = navItems.filter((item) => !item.group)
   const adminNavItems = navItems.filter((item) => item.group === 'Administração')
+  const supportNavItems = navItems.filter((item) => item.group === 'Suporte')
+  const groupedNavItems = [
+    { label: 'Administração', items: adminNavItems },
+    { label: 'Suporte', items: supportNavItems },
+  ].filter((group) => group.items.length)
 
   function linkClass({ isActive }) {
     return [
@@ -76,11 +85,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
               {item.label}
             </NavLink>
           ))}
-          {!!adminNavItems.length && (
-            <div className="pt-4">
-              <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Administração</div>
+          {groupedNavItems.map((group) => (
+            <div key={group.label} className="pt-4">
+              <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{group.label}</div>
               <div className="space-y-1">
-                {adminNavItems.map((item) => (
+                {group.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setSidebarOpen(false)} className={linkClass}>
                     <item.icon className="h-4 w-4" aria-hidden="true" />
                     {item.label}
@@ -88,7 +97,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
                 ))}
               </div>
             </div>
-          )}
+          ))}
         </nav>
       </div>
       <aside className="sticky top-[65px] hidden h-[calc(100vh-65px)] w-72 shrink-0 border-r border-white/10 bg-[#080d14]/55 p-4 backdrop-blur md:block">
@@ -100,11 +109,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
               {item.label}
             </NavLink>
           ))}
-          {!!adminNavItems.length && (
-            <div className="pt-4">
-              <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Administração</div>
+          {groupedNavItems.map((group) => (
+            <div key={group.label} className="pt-4">
+              <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{group.label}</div>
               <div className="space-y-1">
-                {adminNavItems.map((item) => (
+                {group.items.map((item) => (
                   <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
                     <item.icon className="h-4 w-4" aria-hidden="true" />
                     {item.label}
@@ -112,7 +121,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
                 ))}
               </div>
             </div>
-          )}
+          ))}
         </nav>
       </aside>
     </>

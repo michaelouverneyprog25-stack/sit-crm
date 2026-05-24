@@ -93,6 +93,12 @@ service cloud.firestore {
       allow read, create, update, delete: if isSignedIn() && isAdmin();
     }
 
+    // Internal support base: every authenticated user can report errors; only ADM can inspect or resolve.
+    match /system_errors/{docId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isSignedIn() && isAdmin();
+    }
+
     // Stores: used by goals, reports, user management, and fiber city selectors
     match /stores/{storeId} {
       allow read: if isSignedIn() && (

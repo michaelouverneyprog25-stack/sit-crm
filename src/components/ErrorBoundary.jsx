@@ -27,7 +27,7 @@ export default class ErrorBoundary extends React.Component {
           </div>
           <h1 className="mt-4 text-2xl font-semibold text-white">Algo saiu do fluxo esperado</h1>
           <p className="mt-2 text-sm text-slate-300">
-            Registramos o erro localmente para diagnóstico. Você pode tentar recarregar sem perder os dados já salvos.
+            Estamos tentando corrigir automaticamente. Se não for possível, o suporte já foi notificado e os dados salvos permanecem preservados.
           </p>
           <button
             type="button"

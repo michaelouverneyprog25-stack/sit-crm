@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { flushPendingSync } from '../firebase/db'
+import { flushQueuedSystemErrors } from '../utils/systemErrorReporter'
 
 const SyncContext = createContext(null)
 
@@ -40,14 +41,26 @@ export function SyncProvider({ children }) {
       }))
     }
 
+    function updateSupport(event) {
+      const detail = event.detail || {}
+      setState((current) => ({
+        ...current,
+        status: detail.status === 'resolved' ? 'success' : detail.status === 'failed' ? 'error' : 'pending',
+        message: detail.message || current.message,
+        updatedAt: new Date(),
+      }))
+    }
+
     window.addEventListener('online', updateOnline)
     window.addEventListener('offline', updateOnline)
     window.addEventListener('sit:sync-status', updateSync)
+    window.addEventListener('sit:support-status', updateSupport)
 
     return () => {
       window.removeEventListener('online', updateOnline)
       window.removeEventListener('offline', updateOnline)
       window.removeEventListener('sit:sync-status', updateSync)
+      window.removeEventListener('sit:support-status', updateSupport)
     }
   }, [])
 
@@ -64,6 +77,7 @@ export function SyncProvider({ children }) {
         updatedAt: new Date(),
       }))
     }).catch(() => {})
+    flushQueuedSystemErrors().catch(() => {})
     return () => {
       active = false
     }
