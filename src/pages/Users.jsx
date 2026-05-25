@@ -6,6 +6,7 @@ import { validationRules } from '../config/validation'
 import { useAuth } from '../contexts/AuthContext'
 import { apiRequest, disableUserAccess, enableUserAccess, getStores, getUsers } from '../firebase/db'
 import { CACHE_KEYS, readArrayCache, sortByName, writeArrayCache } from '../utils/browserCache'
+import UserAvatar from '../components/UserAvatar'
 
 const USER_MANAGEMENT_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
 const USER_STATUS_ROLES = ['Administrador', 'Gestor Master']
@@ -26,7 +27,8 @@ export default function Users(){
   const [users,setUsers] = useState(() => readArrayCache(CACHE_KEYS.users))
   const [stores, setStores] = useState(() => readArrayCache(CACHE_KEYS.stores))
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({name:'',email:'',password:'Password123',confirmPassword:'Password123',role:'Vendedor', active:true, storeName:'', storeCity:'', storeState:''})
+  const emptyForm = {name:'',email:'',password:'Password123',confirmPassword:'Password123',role:'Vendedor', active:true, storeName:'', storeCity:'', storeState:'', photoUrl:''}
+  const [form, setForm] = useState(emptyForm)
   const [modal, setModal] = useState({type:'', open:false, user:null})
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState({})
@@ -102,7 +104,7 @@ export default function Users(){
       return
     }
     setEditing(u.id)
-    setForm({name:u.name||'', email:u.email||'', password:'', confirmPassword:'', role:u.role||'Vendedor', active: !(u.disabled === true), storeName:u.storeName||'', storeCity:u.storeCity||'', storeState:u.storeState||'' })
+    setForm({name:u.name||'', email:u.email||'', password:'', confirmPassword:'', role:u.role||'Vendedor', active: !(u.disabled === true), storeName:u.storeName||'', storeCity:u.storeCity||'', storeState:u.storeState||'', photoUrl:u.photoUrl||'' })
   }
 
   function change(e){
@@ -175,6 +177,7 @@ export default function Users(){
       storeName: form.role === 'Gestor Master' ? '' : form.storeName,
       storeCity: form.role === 'Gestor Master' ? '' : form.storeCity,
       storeState: form.role === 'Gestor Master' ? '' : form.storeState,
+      photoUrl: form.photoUrl.trim(),
       actorRole: currentUser?.role,
     }
 
@@ -197,6 +200,7 @@ export default function Users(){
           storeName: userPayload.storeName,
           storeCity: userPayload.storeCity,
           storeState: userPayload.storeState,
+          photoUrl: userPayload.photoUrl,
           disabled: !form.active,
         }
         showToast('Usuário atualizado', 'success')
@@ -215,6 +219,7 @@ export default function Users(){
           storeName: userPayload.storeName,
           storeCity: userPayload.storeCity,
           storeState: userPayload.storeState,
+          photoUrl: userPayload.photoUrl,
           disabled: !form.active,
         }
         showToast(result.reused ? result.message : 'Usuário criado', result.reused ? 'info' : 'success')
@@ -235,7 +240,7 @@ export default function Users(){
 
     if (saved) {
       setEditing(null)
-      setForm({name:'',email:'',password:'Password123',confirmPassword:'Password123',role:'Vendedor', active:true, storeName:'', storeCity:'', storeState:''})
+      setForm(emptyForm)
       load({ silent: true })
     }
   }
@@ -347,6 +352,7 @@ export default function Users(){
           {errors.name && <div className="text-sm text-red-500 mb-2">{errors.name}</div>}
           <input name="email" placeholder="Email" value={form.email} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded" />
           {errors.email && <div className="text-sm text-red-500 mb-2">{errors.email}</div>}
+          <input name="photoUrl" placeholder="URL da foto/avatar" value={form.photoUrl} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded" />
           {!editing && <input name="password" placeholder="Senha" type="password" value={form.password} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded" />} 
           {!editing && errors.password && <div className="text-sm text-red-500 mb-2">{errors.password}</div>}
           {!editing && (
@@ -387,7 +393,7 @@ export default function Users(){
             <button disabled={loading} className="bg-green-600 px-3 py-2 rounded flex items-center gap-2 disabled:opacity-50">
               {loading ? <span className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" /> : 'Salvar'}
             </button>
-            <button type="button" disabled={loading} onClick={()=>{setEditing(null); setForm({name:'',email:'',password:'Password123',confirmPassword:'Password123',role:'Vendedor', active:true, storeName:'', storeCity:'', storeState:''})}} className="bg-gray-600 px-3 py-2 rounded">Cancelar</button>
+            <button type="button" disabled={loading} onClick={()=>{setEditing(null); setForm(emptyForm)}} className="bg-gray-600 px-3 py-2 rounded">Cancelar</button>
           </div>
         </form>
 
@@ -406,13 +412,16 @@ export default function Users(){
             {filteredUsers.map(u=> (
               <div key={u.uid || u.id} className="bg-gray-900 p-3 rounded">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                  <div>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <UserAvatar user={u} size="sm" />
+                    <div className="min-w-0">
                     <div className="font-semibold">{u.name || 'Sem nome'}</div>
                     <div className="text-sm text-gray-400">{u.email}</div>
                     <div className="text-sm text-gray-400">{u.role || 'Vendedor'} {'•'} {u.disabled ? 'Desativado' : 'Ativo'}</div>
                     {(u.storeName || u.storeCity || u.storeState) && (
                       <div className="text-sm text-gray-400">Loja: {u.storeName || '-'} {u.storeCity ? `• ${u.storeCity}` : ''} {u.storeState ? `/${u.storeState}` : ''}</div>
                     )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={()=>startEdit(u)} className="px-2 py-1 bg-blue-600 rounded">Editar</button>

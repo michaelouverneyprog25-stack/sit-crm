@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { Activity, BarChart3, Building2, ClipboardList, Database, FileSpreadsheet, Goal, Gauge, LifeBuoy, ReceiptText, SearchCheck, ShoppingCart, Smartphone, TerminalSquare, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import Logo from './Logo'
+import UserAvatar from './UserAvatar'
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }){
   const { currentUser } = useAuth()
@@ -48,8 +49,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
     return [
       'flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition',
       isActive
-        ? 'bg-cyan-300 text-slate-950'
-        : 'text-slate-300 hover:bg-white/10 hover:text-white',
+        ? 'border-l-4 border-[#00A3FF] bg-[#0057FF]/20 text-white shadow-[0_0_24px_rgba(0,87,255,0.22)]'
+        : 'border-l-4 border-transparent text-slate-300 hover:border-[#00A3FF]/70 hover:bg-[#0057FF]/10 hover:text-white',
     ].join(' ')
   }
 
@@ -60,15 +61,13 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
           <Logo variant="full" size="sm" className="justify-center" />
         </div>
         <div className="mb-3 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded bg-cyan-300 font-bold text-slate-950">
-            {displayName.slice(0, 1).toUpperCase()}
-          </div>
+          <UserAvatar user={currentUser} size="md" />
           <div className="min-w-0">
             <div className="truncate font-semibold text-white">{displayName}</div>
             <div className="truncate text-xs text-slate-400">SIT.LUMX CRM</div>
           </div>
         </div>
-        <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+        <div className="inline-flex rounded-full border border-sky-300/25 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-100">
           Perfil: {role}
         </div>
       </div>

@@ -554,6 +554,7 @@ function buildCachedUserProfile(profile = {}) {
     storeName: profile.storeName || profile.store || profile.loja || '',
     storeCity: profile.storeCity || profile.city || profile.cidade || '',
     storeState: profile.storeState || profile.state || profile.estado || '',
+    photoUrl: profile.photoUrl || '',
     disabled: profile.disabled === true,
     createdAt: profile.createdAt || '',
     updatedAt: profile.updatedAt || '',
@@ -4197,6 +4198,7 @@ function buildUserProfile(authUser, profile = {}) {
     storeName: profile.storeName || profile.store || profile.loja || '',
     storeCity: profile.storeCity || profile.city || profile.cidade || '',
     storeState: profile.storeState || profile.state || profile.estado || '',
+    photoUrl: profile.photoUrl || authUser.photoURL || '',
     disabled: authUser.disabled === true || profile.disabled === true,
     createdAt: profile.createdAt || authUser.metadata?.creationTime || '',
     updatedAt: profile.updatedAt || authUser.metadata?.lastSignInTime || '',
@@ -4298,6 +4300,7 @@ app.get('/api/users/:uid/profile', async (req, res) => {
 app.post('/api/users', async (req, res) => {
   try {
     const { name, password, role } = req.body
+    const photoUrl = String(req.body.photoUrl || '').trim()
     const actorIsManager = normalizeRole(req.actorRole || req.body.actorRole) === 'Gerente'
     const storeName = actorIsManager ? getProfileStoreName(req.currentUser) : String(req.body.storeName || '')
     const storeCity = actorIsManager ? (req.currentUser?.storeCity || '') : String(req.body.storeCity || '')
@@ -4359,6 +4362,7 @@ app.post('/api/users', async (req, res) => {
       storeName,
       storeCity,
       storeState,
+      photoUrl,
       disabled: active ? false : true,
       updatedAt: new Date().toISOString(),
       ...(created ? { createdAt: new Date().toISOString() } : {}),
@@ -4379,6 +4383,7 @@ app.post('/api/users', async (req, res) => {
           storeName,
           storeCity,
           storeState,
+          photoUrl,
           disabled: active ? false : true,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           ...(created && !existingProfile.exists ? { createdAt: admin.firestore.FieldValue.serverTimestamp() } : {}),
@@ -4413,6 +4418,7 @@ app.put('/api/users/:uid', async (req, res) => {
   try {
     const { uid } = req.params
     const { name, role, active } = req.body
+    const photoUrl = String(req.body.photoUrl || '').trim()
     const actorIsManager = normalizeRole(req.actorRole || req.body.actorRole) === 'Gerente'
     const storeName = actorIsManager ? getProfileStoreName(req.currentUser) : String(req.body.storeName || '')
     const storeCity = actorIsManager ? (req.currentUser?.storeCity || '') : String(req.body.storeCity || '')
@@ -4456,6 +4462,7 @@ app.put('/api/users/:uid', async (req, res) => {
       storeName,
       storeCity,
       storeState,
+      photoUrl,
       ...(active !== undefined ? { disabled: active ? false : true } : {}),
       updatedAt: new Date().toISOString(),
     }

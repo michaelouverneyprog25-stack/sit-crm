@@ -1543,7 +1543,10 @@ export async function createUserProfile(uid, data) {
 
 export async function updateUserProfile(docId, data) {
   const ref = doc(db, 'users', docId)
-  return updateDoc(ref, data)
+  return updateDoc(ref, {
+    ...data,
+    updatedAt: serverTimestamp(),
+  })
 }
 
 export async function disableUserProfile(docId) {

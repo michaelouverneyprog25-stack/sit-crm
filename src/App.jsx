@@ -22,6 +22,7 @@ const FiberViability = lazy(() => import('./pages/FiberViability'))
 const FiberContracts = lazy(() => import('./pages/FiberContracts'))
 const AdminImports = lazy(() => import('./pages/AdminImports'))
 const SupportMonitor = lazy(() => import('./pages/SupportMonitor'))
+const Profile = lazy(() => import('./pages/Profile'))
 
 function RouteLoader() {
   return (
@@ -56,6 +57,7 @@ export default function App(){
                 <Route path="/goals" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor"]}><Goals/></RoleRoute>} />
                 <Route path="/fiber-viability" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor","Executivo"]}><FiberViability/></RoleRoute>} />
                 <Route path="/fiber-contracts" element={<RoleRoute allowedRoles={["Administrador","Gestor Master","Gerente","Vendedor","Executivo"]}><FiberContracts/></RoleRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>} />
                 <Route path="/admin/imports" element={<RoleRoute allowedRoles={["Administrador"]}><AdminImports/></RoleRoute>} />
                 <Route path="/admin/spreadsheets" element={<RoleRoute allowedRoles={["Administrador"]}><AdminImports/></RoleRoute>} />
                 <Route path="/admin/support" element={<RoleRoute allowedRoles={["Administrador"]}><SupportMonitor/></RoleRoute>} />

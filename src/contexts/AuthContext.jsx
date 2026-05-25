@@ -61,6 +61,7 @@ export function AuthProvider({ children }) {
           storeName: profile?.storeName || '',
           storeCity: profile?.storeCity || '',
           storeState: profile?.storeState || '',
+          photoUrl: profile?.photoUrl || user.photoURL || '',
           disabled: profile?.disabled === true,
         }
 

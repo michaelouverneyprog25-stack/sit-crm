@@ -10,17 +10,23 @@
   --border: rgba(15, 23, 42, 0.1);
   --text: #0f172a;
   --muted: #64748b;
-  --accent: #19e6ff;
-  --accent-strong: #0284ff;
+  --primary-blue: #0057FF;
+  --dark-blue: #002B7F;
+  --accent-blue: #00A3FF;
+  --tim-red: #E30613;
+  --background-dark: #0B1020;
+  --card-dark: #111827;
+  --accent: var(--accent-blue);
+  --accent-strong: var(--primary-blue);
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
 }
 
 .dark {
-  --bg: #05080d;
-  --surface: #0d151f;
-  --surface-2: #101c29;
+  --bg: var(--background-dark);
+  --surface: var(--card-dark);
+  --surface-2: #0f1a2f;
   --surface-3: #162738;
   --border: rgba(226, 232, 240, 0.1);
   --text: #f8fafc;
@@ -39,7 +45,7 @@ html {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(25, 230, 255, 0.15), transparent 28rem),
+    radial-gradient(circle at top left, rgba(0, 87, 255, 0.15), transparent 28rem),
     linear-gradient(180deg, var(--bg) 0%, var(--surface-2) 100%);
   color: var(--text);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -53,9 +59,9 @@ body {
 
 .dark body {
   background:
-    radial-gradient(circle at top left, rgba(25, 230, 255, 0.18), transparent 28rem),
-    radial-gradient(circle at 70% 10%, rgba(2, 132, 255, 0.12), transparent 22rem),
-    linear-gradient(180deg, #05080d 0%, #07101a 54%, #05080d 100%);
+    radial-gradient(circle at top left, rgba(0, 87, 255, 0.22), transparent 28rem),
+    radial-gradient(circle at 70% 10%, rgba(0, 163, 255, 0.14), transparent 22rem),
+    linear-gradient(180deg, #0B1020 0%, #08142a 54%, #0B1020 100%);
 }
 
 ::selection {
@@ -93,8 +99,8 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: rgba(103, 232, 249, 0.75);
-  box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.12);
+  border-color: rgba(0, 163, 255, 0.75);
+  box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.16);
 }
 
 input::placeholder,
@@ -188,11 +194,11 @@ thead {
 }
 
 .bg-blue-600 {
-  background-color: #0891b2 !important;
+  background-color: var(--primary-blue) !important;
 }
 
 .bg-blue-600:hover {
-  background-color: #0e7490 !important;
+  background-color: #0047d1 !important;
 }
 
 .bg-green-600,
