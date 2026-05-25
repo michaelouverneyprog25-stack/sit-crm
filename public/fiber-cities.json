@@ -1,157 +1,218 @@
 {
-  "generatedAt": "2026-05-25T06:01:54.096Z",
+  "generatedAt": "2026-05-25T06:10:22.855Z",
   "source": "data/fiber-coverage.csv",
   "count": 30,
+  "totalRows": 791913,
   "cities": [
     {
       "city": "ANGRA DOS REIS",
       "uf": "RJ",
-      "label": "ANGRA DOS REIS / RJ"
+      "label": "ANGRA DOS REIS / RJ",
+      "file": "angra-dos-reis-rj.json",
+      "rows": 16893
     },
     {
       "city": "ARARUAMA",
       "uf": "RJ",
-      "label": "ARARUAMA / RJ"
+      "label": "ARARUAMA / RJ",
+      "file": "araruama-rj.json",
+      "rows": 14887
     },
     {
       "city": "ARMACAO DOS BUZIOS",
       "uf": "RJ",
-      "label": "ARMACAO DOS BUZIOS / RJ"
+      "label": "ARMACAO DOS BUZIOS / RJ",
+      "file": "armacao-dos-buzios-rj.json",
+      "rows": 18106
     },
     {
       "city": "BARRA DO PIRAI",
       "uf": "RJ",
-      "label": "BARRA DO PIRAI / RJ"
+      "label": "BARRA DO PIRAI / RJ",
+      "file": "barra-do-pirai-rj.json",
+      "rows": 20117
     },
     {
       "city": "BARRA MANSA",
       "uf": "RJ",
-      "label": "BARRA MANSA / RJ"
+      "label": "BARRA MANSA / RJ",
+      "file": "barra-mansa-rj.json",
+      "rows": 12722
     },
     {
       "city": "CABO FRIO",
       "uf": "RJ",
-      "label": "CABO FRIO / RJ"
+      "label": "CABO FRIO / RJ",
+      "file": "cabo-frio-rj.json",
+      "rows": 46227
     },
     {
       "city": "CAMPOS DOS GOYTACAZES",
       "uf": "RJ",
-      "label": "CAMPOS DOS GOYTACAZES / RJ"
+      "label": "CAMPOS DOS GOYTACAZES / RJ",
+      "file": "campos-dos-goytacazes-rj.json",
+      "rows": 32862
     },
     {
       "city": "CASIMIRO DE ABREU",
       "uf": "RJ",
-      "label": "CASIMIRO DE ABREU / RJ"
+      "label": "CASIMIRO DE ABREU / RJ",
+      "file": "casimiro-de-abreu-rj.json",
+      "rows": 5920
     },
     {
       "city": "DUQUE DE CAXIAS",
       "uf": "RJ",
-      "label": "DUQUE DE CAXIAS / RJ"
+      "label": "DUQUE DE CAXIAS / RJ",
+      "file": "duque-de-caxias-rj.json",
+      "rows": 25844
     },
     {
       "city": "ITAGUAI",
       "uf": "RJ",
-      "label": "ITAGUAI / RJ"
+      "label": "ITAGUAI / RJ",
+      "file": "itaguai-rj.json",
+      "rows": 12698
     },
     {
       "city": "MANGARATIBA",
       "uf": "RJ",
-      "label": "MANGARATIBA / RJ"
+      "label": "MANGARATIBA / RJ",
+      "file": "mangaratiba-rj.json",
+      "rows": 5062
     },
     {
       "city": "MARICA",
       "uf": "RJ",
-      "label": "MARICA / RJ"
+      "label": "MARICA / RJ",
+      "file": "marica-rj.json",
+      "rows": 39986
     },
     {
       "city": "MESQUITA",
       "uf": "RJ",
-      "label": "MESQUITA / RJ"
+      "label": "MESQUITA / RJ",
+      "file": "mesquita-rj.json",
+      "rows": 23087
     },
     {
       "city": "NILOPOLIS",
       "uf": "RJ",
-      "label": "NILOPOLIS / RJ"
+      "label": "NILOPOLIS / RJ",
+      "file": "nilopolis-rj.json",
+      "rows": 4137
     },
     {
       "city": "NITEROI",
       "uf": "RJ",
-      "label": "NITEROI / RJ"
+      "label": "NITEROI / RJ",
+      "file": "niteroi-rj.json",
+      "rows": 36688
     },
     {
       "city": "NOVA FRIBURGO",
       "uf": "RJ",
-      "label": "NOVA FRIBURGO / RJ"
+      "label": "NOVA FRIBURGO / RJ",
+      "file": "nova-friburgo-rj.json",
+      "rows": 8465
     },
     {
       "city": "NOVA IGUACU",
       "uf": "RJ",
-      "label": "NOVA IGUACU / RJ"
+      "label": "NOVA IGUACU / RJ",
+      "file": "nova-iguacu-rj.json",
+      "rows": 46760
     },
     {
       "city": "PARACAMBI",
       "uf": "RJ",
-      "label": "PARACAMBI / RJ"
+      "label": "PARACAMBI / RJ",
+      "file": "paracambi-rj.json",
+      "rows": 7829
     },
     {
       "city": "PETROPOLIS",
       "uf": "RJ",
-      "label": "PETROPOLIS / RJ"
+      "label": "PETROPOLIS / RJ",
+      "file": "petropolis-rj.json",
+      "rows": 66949
     },
     {
       "city": "PINHEIRAL",
       "uf": "RJ",
-      "label": "PINHEIRAL / RJ"
+      "label": "PINHEIRAL / RJ",
+      "file": "pinheiral-rj.json",
+      "rows": 4998
     },
     {
       "city": "QUEIMADOS",
       "uf": "RJ",
-      "label": "QUEIMADOS / RJ"
+      "label": "QUEIMADOS / RJ",
+      "file": "queimados-rj.json",
+      "rows": 20150
     },
     {
       "city": "RESENDE",
       "uf": "RJ",
-      "label": "RESENDE / RJ"
+      "label": "RESENDE / RJ",
+      "file": "resende-rj.json",
+      "rows": 22559
     },
     {
       "city": "RIO DE JANEIRO",
       "uf": "RJ",
-      "label": "RIO DE JANEIRO / RJ"
+      "label": "RIO DE JANEIRO / RJ",
+      "file": "rio-de-janeiro-rj.json",
+      "rows": 151010
     },
     {
       "city": "SAO GONCALO",
       "uf": "RJ",
-      "label": "SAO GONCALO / RJ"
+      "label": "SAO GONCALO / RJ",
+      "file": "sao-goncalo-rj.json",
+      "rows": 9881
     },
     {
       "city": "SAO JOAO DE MERITI",
       "uf": "RJ",
-      "label": "SAO JOAO DE MERITI / RJ"
+      "label": "SAO JOAO DE MERITI / RJ",
+      "file": "sao-joao-de-meriti-rj.json",
+      "rows": 20733
     },
     {
       "city": "SAO PEDRO DA ALDEIA",
       "uf": "RJ",
-      "label": "SAO PEDRO DA ALDEIA / RJ"
+      "label": "SAO PEDRO DA ALDEIA / RJ",
+      "file": "sao-pedro-da-aldeia-rj.json",
+      "rows": 16591
     },
     {
       "city": "SAQUAREMA",
       "uf": "RJ",
-      "label": "SAQUAREMA / RJ"
+      "label": "SAQUAREMA / RJ",
+      "file": "saquarema-rj.json",
+      "rows": 3039
     },
     {
       "city": "TERESOPOLIS",
       "uf": "RJ",
-      "label": "TERESOPOLIS / RJ"
+      "label": "TERESOPOLIS / RJ",
+      "file": "teresopolis-rj.json",
+      "rows": 15161
     },
     {
       "city": "VALENCA",
       "uf": "RJ",
-      "label": "VALENCA / RJ"
+      "label": "VALENCA / RJ",
+      "file": "valenca-rj.json",
+      "rows": 12382
     },
     {
       "city": "VOLTA REDONDA",
       "uf": "RJ",
-      "label": "VOLTA REDONDA / RJ"
+      "label": "VOLTA REDONDA / RJ",
+      "file": "volta-redonda-rj.json",
+      "rows": 70170
     }
   ]
 }

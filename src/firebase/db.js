@@ -871,6 +871,92 @@ async function getStaticFiberCities() {
   }
 }
 
+async function getStaticFiberIndex() {
+  if (typeof fetch === 'undefined') return null
+  try {
+    const response = await fetch('/fiber-index/index.json', { cache: 'no-store' })
+    if (!response.ok) return null
+    return response.json()
+  } catch (error) {
+    console.warn('Não foi possível carregar índice estático de fibra.', error)
+    return null
+  }
+}
+
+function mapStaticFiberRow(columns = [], values = [], cityInfo = {}) {
+  const get = (column) => values[columns.indexOf(column)] ?? ''
+  return {
+    uf: cityInfo.uf || '',
+    city: cityInfo.city || '',
+    cep: get('cep'),
+    street: get('street'),
+    number: get('number'),
+    complement: get('complement'),
+    neighborhood: get('neighborhood'),
+    households: Number(get('households')) || 0,
+    viabilityCode: get('viabilityCode'),
+    viability: get('viability'),
+    olt: get('olt'),
+    capacityReason: get('capacityReason'),
+  }
+}
+
+async function getStaticFiberRowsForCity(cityInfo) {
+  if (!cityInfo?.file || typeof fetch === 'undefined') return []
+  const response = await fetch(`/fiber-index/${cityInfo.file}`)
+  if (!response.ok) return []
+  const data = await response.json()
+  const columns = Array.isArray(data?.columns) ? data.columns : []
+  const rows = Array.isArray(data?.rows) ? data.rows : []
+  return rows.map((values) => mapStaticFiberRow(columns, values, cityInfo))
+}
+
+async function searchStaticFiberViability(filters = {}, limit = 150) {
+  const startedAt = Date.now()
+  const index = await getStaticFiberIndex()
+  const cityEntries = Array.isArray(index?.cities) ? index.cities : []
+  if (!cityEntries.length) return null
+
+  const selectedCity = normalizeText(filters.city)
+  const citiesToSearch = selectedCity
+    ? cityEntries.filter((item) => normalizeText(item.city) === selectedCity)
+    : cityEntries
+
+  if (!citiesToSearch.length) {
+    return {
+      rows: [],
+      totalMatches: 0,
+      scannedRows: 0,
+      limit,
+      elapsedMs: Date.now() - startedAt,
+      source: 'static',
+    }
+  }
+
+  const matches = []
+  let totalMatches = 0
+  let scannedRows = 0
+
+  for (const cityInfo of citiesToSearch) {
+    const rows = await getStaticFiberRowsForCity(cityInfo)
+    scannedRows += rows.length
+    rows.forEach((row) => {
+      if (!fiberRowMatches(row, filters)) return
+      totalMatches += 1
+      if (matches.length < limit) matches.push(row)
+    })
+  }
+
+  return {
+    rows: matches,
+    totalMatches,
+    scannedRows,
+    limit,
+    elapsedMs: Date.now() - startedAt,
+    source: 'static',
+  }
+}
+
 function fiberRowMatches(row, filters = {}) {
   if (filters.city && !normalizeText(row.city).includes(normalizeText(filters.city))) return false
   if (filters.cep && !onlyDigits(row.cep).startsWith(onlyDigits(filters.cep))) return false
@@ -969,7 +1055,16 @@ export async function searchFiberViability(filters = {}) {
   try {
     apiResult = await apiRequest(`/api/fiber-viability?${params.toString()}`)
   } catch (apiError) {
-    console.warn('Não foi possível consultar viabilidade pela API. Tentando Firestore.', apiError)
+    console.warn('Não foi possível consultar viabilidade pela API. Tentando base estática.', apiError)
+  }
+
+  if (apiResult?.rows?.length || Number(apiResult?.totalMatches || 0) > 0) {
+    return apiResult
+  }
+
+  const staticResult = await searchStaticFiberViability(filters, 150)
+  if (staticResult?.rows?.length || Number(staticResult?.totalMatches || 0) > 0) {
+    return staticResult
   }
 
   const rows = (await getFiberRowsFromFirestore()).filter((row) => fiberRowMatches(row, filters))
