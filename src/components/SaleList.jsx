@@ -42,6 +42,12 @@ export default function SaleList({ items, loading = false, onEdit, onDelete }) {
       <div className="space-y-3">
         {items.map((s) => (
           <div key={s.id} className="overflow-hidden rounded-xl border border-white/10 bg-gray-900/90">
+            {(() => {
+              const upgradeAmount = Number(s.commissionDetails?.upgrade?.amount || 0)
+              const deviceCommission = Number(s.commissionDetails?.devices?.sellerAmount || 0)
+              const hasUpgradeDeviceCommission = s.saleType === 'Upgrade' && Number(s.deviceValue || 0) > 0 && deviceCommission > 0
+              return (
+                <>
             <div className="flex flex-col gap-3 border-b border-white/10 bg-white/[0.03] p-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -97,7 +103,8 @@ export default function SaleList({ items, loading = false, onEdit, onDelete }) {
                 {s.saleType === 'Upgrade' && s.previousPlan && <div className="text-sm text-gray-400">Plano anterior: {s.previousPlan}</div>}
                 {s.saleType === 'Upgrade' && (
                   <div className="rounded border border-cyan-300/10 bg-cyan-300/5 p-2 text-sm text-gray-300 md:col-span-2">
-                    <div>Comissão upgrade: {formatCurrency(s.commissionDetails?.upgrade?.amount || 0)}</div>
+                    <div>Comissão upgrade: {formatCurrency(upgradeAmount)}</div>
+                    {hasUpgradeDeviceCommission && <div>Comissão aparelho: {formatCurrency(deviceCommission)}</div>}
                     <div>Regra: {s.commissionDetails?.upgrade?.ruleId ? `${s.commissionDetails?.upgrade?.category || 'Upgrade'} - ${s.commissionDetails?.upgrade?.type || 'Regra cadastrada'}` : 'sem regra cadastrada'}</div>
                   </div>
                 )}
@@ -108,8 +115,20 @@ export default function SaleList({ items, loading = false, onEdit, onDelete }) {
                 {formatDate(s.createdAt) && <div className="text-sm text-gray-400">Criado em: {formatDate(s.createdAt)}</div>}
               </div>
               <div className="grid gap-2 self-start rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm">
+                {s.saleType === 'Upgrade' && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-400">Comissão upgrade</span>
+                    <span className="font-semibold text-white">{formatCurrency(upgradeAmount)}</span>
+                  </div>
+                )}
+                {hasUpgradeDeviceCommission && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-400">Comissão aparelho</span>
+                    <span className="font-semibold text-white">{formatCurrency(deviceCommission)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-gray-400">Comissão vendedor</span>
+                  <span className="text-gray-400">Comissão vendedor total</span>
                   <span className="font-semibold text-white">{formatCurrency(s.commission || 0)}</span>
                 </div>
                 {canViewManagerCommission && Number(s.storeCommission || 0) > 0 && (
@@ -120,6 +139,9 @@ export default function SaleList({ items, loading = false, onEdit, onDelete }) {
                 )}
               </div>
             </div>
+                </>
+              )
+            })()}
           </div>
         ))}
         {!items.length && <div className="rounded border border-white/10 bg-gray-900 p-4 text-gray-400">Nenhuma venda encontrada.</div>}

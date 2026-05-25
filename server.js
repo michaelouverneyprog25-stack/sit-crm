@@ -129,11 +129,16 @@ const BASIC_CONTROL_PREVIOUS_PLANS = [
   'Controle Ligações Ilimitadas',
   'Controle A Plus',
   'Controle Light Plus',
+  'CONTROLE 2.0',
+  'CONTROLE BASICO EXPRESS',
+  'CONTROLE LIGTH EXPRESS',
 ]
 const SMART_CONTROL_PREVIOUS_PLANS = [
   'Controle Smart',
   'Controle B Plus',
   'Controle',
+  'CONTROLE PLUS 2.0',
+  'CONTROLE PRO EXPRESS',
 ]
 const PLUS_SOCIAL_CONTROL_PLANS = [
   'Controle Plus',
@@ -141,6 +146,7 @@ const PLUS_SOCIAL_CONTROL_PLANS = [
   'Redes Sociais',
   'Redes Sociais / Plus',
   'CONTROLE PLUS 2.0',
+  'CONTROLE PRO EXPRESS',
 ]
 const PREMIUM_CONTROL_PLANS = [
   'Controle Premium',
@@ -156,16 +162,22 @@ const BLACK_LIGHT_PREVIOUS_PLANS = [
   'Black B Ligth',
   'Black C Ligth',
 ]
-const BLACK_A_PREVIOUS_PLANS = ['Black A']
-const BLACK_B_PREVIOUS_PLANS = ['Black B']
-const BLACK_C_PREVIOUS_PLANS = ['Black C']
+const BLACK_A_PREVIOUS_PLANS = ['Black A', 'BLACK A EXPRESS']
+const BLACK_B_PREVIOUS_PLANS = ['Black B', 'BLACK B EXPRESS']
+const BLACK_C_PREVIOUS_PLANS = ['Black C', 'BLACK C EXPRESS']
 const BLACK_TARGET_PLANS = [
   'Black',
   'Black Plus',
   'Black Premium',
+  'Black A Express',
+  'Black B Express',
+  'Black C Express',
   'BLACK',
   'BLACK PLUS',
   'BLACK PREMIUM',
+  'BLACK A EXPRESS',
+  'BLACK B EXPRESS',
+  'BLACK C EXPRESS',
 ]
 const FAMILY_TARGET_PLANS = [
   'Família',
@@ -234,6 +246,22 @@ const DEFAULT_UPGRADE_COMMISSION_RULES = [
   ...buildUpgradeRules(FAMILY_PREVIOUS_PLANS, ['Família Plus', 'Família Premium', 'Família VIP', 'Black Família Plus', 'Black Família Premium', 'Black Família VIP', 'BLACK FAMILIA PLUS', 'BLACK FAMILIA PREMIUM', 'BLACK FAMILIA VIP'], 'Família', 15),
   ...buildUpgradeRules(FAMILY_PLUS_PREVIOUS_PLANS, ['Família Premium', 'Família VIP', 'Black Família Premium', 'Black Família VIP', 'BLACK FAMILIA PREMIUM', 'BLACK FAMILIA VIP'], 'Família', 15),
   ...buildUpgradeRules(FAMILY_PREMIUM_PREVIOUS_PLANS, ['Família VIP', 'Black Família VIP', 'BLACK FAMILIA VIP'], 'Família', 15),
+  buildUpgradeRule('CONTROLE*', 'CONTROLE PLUS*', 'Controle', 5),
+  buildUpgradeRule('CONTROLE*', 'CONTROLE PRO*', 'Controle', 5),
+  buildUpgradeRule('CONTROLE*', 'CONTROLE PREMIUM*', 'Premium', 7),
+  buildUpgradeRule('CONTROLE*', 'BLACK*', 'Black', 10, 'Controle para Black'),
+  buildUpgradeRule('CONTROLE*', 'BLACK FAMILIA*', 'Família', 15, 'Controle para Família'),
+  buildUpgradeRule('BLACK A*', 'BLACK B*', 'Black', 10),
+  buildUpgradeRule('BLACK A*', 'BLACK C*', 'Black', 10),
+  buildUpgradeRule('BLACK A*', 'BLACK PLUS*', 'Black', 10),
+  buildUpgradeRule('BLACK A*', 'BLACK PREMIUM*', 'Black', 10),
+  buildUpgradeRule('BLACK B*', 'BLACK C*', 'Black', 10),
+  buildUpgradeRule('BLACK B*', 'BLACK PREMIUM*', 'Black', 10),
+  buildUpgradeRule('BLACK C*', 'BLACK PREMIUM*', 'Black', 10),
+  buildUpgradeRule('BLACK*', 'BLACK FAMILIA*', 'Família', 15),
+  buildUpgradeRule('BLACK FAMILIA*', 'BLACK FAMILIA PLUS*', 'Família', 15),
+  buildUpgradeRule('BLACK FAMILIA*', 'BLACK FAMILIA PREMIUM*', 'Família', 15),
+  buildUpgradeRule('BLACK FAMILIA*', 'BLACK FAMILIA VIP*', 'Família', 15),
 ]
 const DEFAULT_STANDARD_COMMISSION_RULES = [
   {
@@ -1250,6 +1278,7 @@ function findUpgradeCommissionRule(sale, rules = []) {
   return rules
     .filter((rule) => (
       rule.ativo
+      && normalizeText(rule.subcategoria || rule.categoria) === 'upgrade'
       && planPatternMatches(rule.planoAnterior, previousPlan)
       && planPatternMatches(rule.planoNovo, newPlan)
     ))
