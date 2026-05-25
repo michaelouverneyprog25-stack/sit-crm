@@ -135,6 +135,22 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
     setErrors({})
   }, [initialData])
 
+  useEffect(() => {
+    if (initialData) return undefined
+
+    const syncSaleTime = () => {
+      setForm((current) => ({
+        ...current,
+        saleTime: getCurrentSaleTime(),
+      }))
+    }
+
+    syncSaleTime()
+    const timer = setInterval(syncSaleTime, 30000)
+
+    return () => clearInterval(timer)
+  }, [initialData])
+
   function change(e) {
     const { name } = e.target
     const value = ['amount'].includes(name)
@@ -202,10 +218,11 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
   function submit(e) {
     e.preventDefault()
     const nextErrors = {}
+    const submittedSaleTime = initialData ? form.saleTime : getCurrentSaleTime()
 
     if (!form.customer.trim()) nextErrors.customer = 'Informe o cliente.'
     if (!form.saleDate) nextErrors.saleDate = 'Informe a data.'
-    if (!form.saleTime) nextErrors.saleTime = 'Informe a hora.'
+    if (!submittedSaleTime) nextErrors.saleTime = 'Informe a hora.'
     if (!form.cpf.trim()) nextErrors.cpf = 'Informe o CPF.'
     if (!form.saleType) nextErrors.saleType = 'Selecione a modalidade de venda.'
     if (form.saleType !== 'Acessórios' && !form.access.trim()) nextErrors.access = form.saleType === 'Fibra' ? 'Informe o contrato.' : 'Informe o acesso.'
@@ -240,7 +257,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
     onSave({
       ...form,
       amount: isDependentPlan(form.plan) || form.saleType === 'Upgrade' ? 0 : form.saleType === 'Acessórios' ? parsedAccessoryValue : parsedPlanValue,
-      saleTime: form.saleTime,
+      saleTime: submittedSaleTime,
       planValue: isDependentPlan(form.plan) || form.saleType === 'Upgrade' ? 0 : form.saleType === 'Acessórios' ? '' : parsedPlanValue,
       dependentCount: Number.isFinite(dependentCount) ? dependentCount : 0,
       provisionalNumber: form.saleType === 'Portabilidade' || (form.saleType === 'Aparelhos' && form.deviceSaleMode === 'Portabilidade') ? form.provisionalNumber.trim() : '',
@@ -282,7 +299,7 @@ export default function SaleForm({ initialData = null, onSave, onCancel, submitL
       </div>
       <input name="saleDate" type="date" value={form.saleDate} onChange={change} className={`${fieldClass} mb-2`} />
       {errors.saleDate && <div className={errorClass}>{errors.saleDate}</div>}
-      <input name="saleTime" type="time" value={form.saleTime} onChange={change} className={`${fieldClass} mb-2`} />
+      <input name="saleTime" type="time" value={form.saleTime} disabled className={`${fieldClass} mb-2 cursor-not-allowed opacity-75`} />
       {errors.saleTime && <div className={errorClass}>{errors.saleTime}</div>}
       <input name="customer" placeholder="Cliente" value={form.customer} onChange={change} className={`${fieldClass} mb-2`} />
       {errors.customer && <div className={errorClass}>{errors.customer}</div>}

@@ -19,12 +19,11 @@ const REPORT_OPTIONS = [
 
 const DEFAULT_REPORTS = REPORT_OPTIONS.map((item) => item.key)
 const SALE_FILTER_OPTIONS = [
+  { key: 'accessories', label: 'Acessórios' },
+  { key: 'storeDevice', label: 'Aparelhos Loja' },
+  { key: 'timDevice', label: 'Aparelhos TIM' },
   { key: 'fiber', label: 'Fibra' },
   { key: 'portability', label: 'Portabilidade' },
-  { key: 'devices', label: 'Aparelhos' },
-  { key: 'storeDevice', label: 'Loja' },
-  { key: 'timDevice', label: 'TIM' },
-  { key: 'accessories', label: 'Acessórios' },
 ]
 const SERVICES = [
   'Gross',
@@ -711,7 +710,7 @@ export default function Reports() {
 
         <div className="mb-4 rounded-lg border border-white/10 bg-gray-900/70 p-3">
           <div className="mb-2 text-sm font-semibold text-gray-200">Filtros de venda</div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             {SALE_FILTER_OPTIONS.map((option) => (
               <label key={option.key} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] p-2 text-sm text-gray-200">
                 <input type="checkbox" checked={filters.saleFilters.includes(option.key)} onChange={() => toggleSaleFilter(option.key)} className="h-4 w-4 accent-cyan-300" />
