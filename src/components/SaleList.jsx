@@ -115,18 +115,6 @@ export default function SaleList({ items, loading = false, onEdit, onDelete }) {
                 {formatDate(s.createdAt) && <div className="text-sm text-gray-400">Criado em: {formatDate(s.createdAt)}</div>}
               </div>
               <div className="grid gap-2 self-start rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm">
-                {s.saleType === 'Upgrade' && (
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-400">Comissão upgrade</span>
-                    <span className="font-semibold text-white">{formatCurrency(upgradeAmount)}</span>
-                  </div>
-                )}
-                {hasUpgradeDeviceCommission && (
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-gray-400">Comissão aparelho</span>
-                    <span className="font-semibold text-white">{formatCurrency(deviceCommission)}</span>
-                  </div>
-                )}
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-gray-400">Comissão vendedor total</span>
                   <span className="font-semibold text-white">{formatCurrency(s.commission || 0)}</span>

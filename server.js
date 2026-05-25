@@ -211,6 +211,7 @@ const FAMILY_PREMIUM_PREVIOUS_PLANS = [
 
 function buildUpgradeRule(planoAnterior, planoNovo, categoria, valorComissao, tipoUpgrade = categoria) {
   return {
+    subcategoria: 'Upgrade',
     planoAnterior,
     planoNovo,
     tipoUpgrade,
@@ -1278,7 +1279,10 @@ function findUpgradeCommissionRule(sale, rules = []) {
   return rules
     .filter((rule) => (
       rule.ativo
-      && normalizeText(rule.subcategoria || rule.categoria) === 'upgrade'
+      && (
+        normalizeText(rule.subcategoria) === 'upgrade'
+        || (!rule.subcategoria && UPGRADE_COMMISSION_CATEGORIES.some((category) => normalizeText(category) === normalizeText(rule.categoria)))
+      )
       && planPatternMatches(rule.planoAnterior, previousPlan)
       && planPatternMatches(rule.planoNovo, newPlan)
     ))
