@@ -42,29 +42,40 @@ export default function FiberViability() {
 
   useEffect(() => {
     let active = true
-    setLoadingCities(true)
-    getFiberViabilityCities()
-      .then((data) => {
-        if (active) setCities(Array.isArray(data) ? data : [])
-      })
+    async function loadBase() {
+      setLoadingCities(true)
+      try {
+        const [cityData, diagnosticData] = await Promise.allSettled([
+          getFiberViabilityCities(),
+          diagnoseFiberViability(),
+        ])
+        if (!active) return
 
-    diagnoseFiberViability()
-      .then((data) => {
-        if (active) setDiagnostics(data)
-      })
-      .catch((err) => {
-        console.warn('Diagnóstico de fibra indisponível:', err)
-      })
-      .catch((err) => {
-        console.error('Erro ao carregar cidades da base de fibra:', err)
+        if (cityData.status === 'fulfilled') {
+          setCities(Array.isArray(cityData.value) ? cityData.value : [])
+        } else {
+          console.error('Erro ao carregar cidades da base de fibra:', cityData.reason)
+          setCities([])
+          setError(cityData.reason?.message || 'Não foi possível carregar as cidades cadastradas de fibra.')
+        }
+
+        if (diagnosticData.status === 'fulfilled') {
+          setDiagnostics(diagnosticData.value)
+        } else {
+          console.warn('Diagnóstico de fibra indisponível:', diagnosticData.reason)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar base de fibra:', err)
         if (active) {
           setCities([])
-          setError('Não foi possível carregar as cidades cadastradas de fibra.')
+          setError(err.message || 'A base de fibra falhou ao carregar. O suporte foi notificado.')
         }
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoadingCities(false)
-      })
+      }
+    }
+
+    loadBase()
 
     return () => {
       active = false
@@ -134,7 +145,11 @@ export default function FiberViability() {
         <MetricCard
           label="Base de fibra"
           value={diagnostics?.hasData ? 'Ativa' : 'Diagnóstico'}
-          helper={`${diagnostics?.collections?.filter((item) => item.status === 'ok').length || 0} collection(s) com dados`}
+          helper={diagnostics?.localBase?.status
+            ? `Arquivo local: ${diagnostics.localBase.status}`
+            : diagnostics?.primaryCollectionActive
+              ? 'Usando somente /viabilidade_fibra'
+            : `${diagnostics?.collections?.filter((item) => item.status === 'ok').length || 0} collection(s) com dados`}
           tone={diagnostics?.hasData ? 'emerald' : 'amber'}
           icon={Activity}
         />
@@ -150,7 +165,12 @@ export default function FiberViability() {
       {error && <div className="rounded border border-red-300/30 bg-red-600/20 p-3 text-sm text-red-100">{error}</div>}
       {diagnostics && !diagnostics.hasData && (
         <div className="rounded border border-amber-300/30 bg-amber-400/10 p-3 text-sm text-amber-100">
-          Diagnóstico: nenhuma collection de fibra retornou dados. O sistema tentará usar lojas cadastradas e cache local.
+          Diagnóstico: a base de fibra não retornou dados. O sistema tentará usar lojas cadastradas e cache local.
+        </div>
+      )}
+      {!!diagnostics?.localBase?.missingColumns?.length && (
+        <div className="rounded border border-red-300/30 bg-red-600/20 p-3 text-sm text-red-100">
+          Base de fibra com colunas obrigatórias ausentes: {diagnostics.localBase.missingColumns.join(', ')}.
         </div>
       )}
 

@@ -61,6 +61,7 @@ const SALES_CACHE_FILE = path.join(DATA_DIR, 'sales-cache.json')
 const GOALS_CACHE_FILE = path.join(DATA_DIR, 'goals-cache.json')
 const COMMISSION_RULES_CACHE_FILE = path.join(DATA_DIR, 'commission-rules-cache.json')
 const FIBER_COVERAGE_FILE = path.join(DATA_DIR, 'fiber-coverage.csv')
+const FIBER_REQUIRED_HEADERS = ['UF', 'MUNICIPIO', 'CEP', 'LOGRADOURO', 'BAIRRO', 'VIABILIDADE']
 const FIRESTORE_QUOTA_PAUSE_MS = 5 * 60 * 1000
 let firestoreQuotaPausedUntil = 0
 let fiberCitiesCache = { mtimeMs: 0, cities: [] }
@@ -2737,6 +2738,31 @@ function mapFiberCoverageRow(headers, values) {
   }
 }
 
+function validateFiberCoverageHeaders(headers) {
+  const normalized = new Set(headers.map((header) => normalizeSearchValue(header)))
+  return FIBER_REQUIRED_HEADERS.filter((header) => !normalized.has(normalizeSearchValue(header)))
+}
+
+function getFiberCoverageFileStatus() {
+  if (!fs.existsSync(FIBER_COVERAGE_FILE)) {
+    return {
+      active: false,
+      status: 'missing',
+      file: FIBER_COVERAGE_FILE,
+      message: 'Base de viabilidade de fibra não encontrada no servidor.',
+    }
+  }
+
+  const stat = fs.statSync(FIBER_COVERAGE_FILE)
+  return {
+    active: true,
+    status: stat.size > 0 ? 'active' : 'empty',
+    file: FIBER_COVERAGE_FILE,
+    sizeBytes: stat.size,
+    updatedAt: stat.mtime.toISOString(),
+  }
+}
+
 function fiberRowMatches(row, filters) {
   if (filters.city && !normalizeSearchValue(row.city).includes(filters.city)) return false
   if (filters.cep && !onlyDigits(row.cep).startsWith(filters.cep)) return false
@@ -2747,8 +2773,9 @@ function fiberRowMatches(row, filters) {
 }
 
 async function searchFiberCoverage(filters, limit = 100) {
-  if (!fs.existsSync(FIBER_COVERAGE_FILE)) {
-    throw new Error('Base de viabilidade de fibra não encontrada no servidor.')
+  const fileStatus = getFiberCoverageFileStatus()
+  if (!fileStatus.active || fileStatus.status === 'empty') {
+    throw new Error(fileStatus.message || 'Base de viabilidade de fibra vazia ou indisponível.')
   }
 
   const matches = []
@@ -2764,6 +2791,10 @@ async function searchFiberCoverage(filters, limit = 100) {
   for await (const line of rl) {
     if (!headers.length) {
       headers = parseSemicolonCsvLine(line).map((header) => header.replace(/^\uFEFF/, ''))
+      const missingHeaders = validateFiberCoverageHeaders(headers)
+      if (missingHeaders.length) {
+        throw new Error(`Base de fibra com colunas obrigatórias ausentes: ${missingHeaders.join(', ')}.`)
+      }
       continue
     }
 
@@ -2785,8 +2816,9 @@ async function searchFiberCoverage(filters, limit = 100) {
 }
 
 async function getFiberCoverageCities() {
-  if (!fs.existsSync(FIBER_COVERAGE_FILE)) {
-    throw new Error('Base de viabilidade de fibra não encontrada no servidor.')
+  const fileStatus = getFiberCoverageFileStatus()
+  if (!fileStatus.active || fileStatus.status === 'empty') {
+    throw new Error(fileStatus.message || 'Base de viabilidade de fibra vazia ou indisponível.')
   }
 
   const stat = fs.statSync(FIBER_COVERAGE_FILE)
@@ -2804,6 +2836,10 @@ async function getFiberCoverageCities() {
   for await (const line of rl) {
     if (!headers.length) {
       headers = parseSemicolonCsvLine(line).map((header) => header.replace(/^\uFEFF/, ''))
+      const missingHeaders = validateFiberCoverageHeaders(headers)
+      if (missingHeaders.length) {
+        throw new Error(`Base de fibra com colunas obrigatórias ausentes: ${missingHeaders.join(', ')}.`)
+      }
       continue
     }
 
@@ -2835,6 +2871,35 @@ app.get('/api/fiber-viability/cities', async (req, res) => {
   } catch (error) {
     console.error('Erro ao carregar cidades de viabilidade de fibra:', error)
     res.status(500).json({ message: error.message || 'Não foi possível carregar as cidades da base de fibra.' })
+  }
+})
+
+app.get('/api/fiber-viability/diagnostics', async (req, res) => {
+  try {
+    const fileStatus = getFiberCoverageFileStatus()
+    const diagnostics = {
+      localBase: fileStatus,
+      cachedCities: fiberCitiesCache.cities.length,
+      checkedAt: new Date().toISOString(),
+    }
+
+    if (fileStatus.active) {
+      const rl = readline.createInterface({
+        input: fs.createReadStream(FIBER_COVERAGE_FILE),
+        crlfDelay: Infinity,
+      })
+      for await (const line of rl) {
+        const headers = parseSemicolonCsvLine(line).map((header) => header.replace(/^\uFEFF/, ''))
+        diagnostics.localBase.missingColumns = validateFiberCoverageHeaders(headers)
+        diagnostics.localBase.status = diagnostics.localBase.missingColumns.length ? 'invalid-columns' : fileStatus.status
+        break
+      }
+    }
+
+    res.status(200).json(diagnostics)
+  } catch (error) {
+    console.error('Erro ao diagnosticar base de fibra:', error)
+    res.status(500).json({ message: error.message || 'Não foi possível diagnosticar a base de fibra.' })
   }
 })
 

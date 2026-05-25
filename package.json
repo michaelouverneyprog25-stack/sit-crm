@@ -10,6 +10,7 @@
     "server": "node server.js",
     "cleanup-data": "node scripts/cleanupData.js",
     "import-fiber-coverage": "node scripts/importFiberCoverage.js",
+    "rebuild-fiber-coverage": "node scripts/importFiberCoverage.js --from-current",
     "seed-admin": "node scripts/seedAdmin.js"
   },
   "dependencies": {

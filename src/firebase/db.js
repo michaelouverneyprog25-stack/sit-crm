@@ -42,6 +42,7 @@ const fiberCoverageCollections = [
   'cidadesFibra',
   'viabilidadeFibra',
 ]
+const primaryFiberCoverageCollection = 'viabilidade_fibra'
 const API_CACHE_PREFIX = 'sit.apiCache.'
 const PENDING_SYNC_KEY = 'sit.pendingSyncQueue'
 const FIBER_ROWS_CACHE_KEY = 'sit.fiberRowsCache'
@@ -811,7 +812,40 @@ function fiberRowMatches(row, filters = {}) {
 async function getFiberRowsFromFirestore() {
   const rows = []
   const diagnostics = []
+  try {
+    const primarySnap = await getDocs(collection(db, primaryFiberCoverageCollection))
+    diagnostics.push({
+      collection: primaryFiberCoverageCollection,
+      status: primarySnap.empty ? 'empty' : 'ok',
+      rows: primarySnap.size,
+      primary: true,
+    })
+    if (!primarySnap.empty) {
+      const primaryRows = primarySnap.docs.map(serializeFiberRow)
+      writeJsonCache(FIBER_ROWS_CACHE_KEY, {
+        rows: primaryRows,
+        diagnostics: [
+          ...diagnostics,
+          { collection: 'legacy', status: 'skipped-primary-active', rows: 0 },
+        ],
+        updatedAt: Date.now(),
+        source: primaryFiberCoverageCollection,
+      })
+      return primaryRows
+    }
+  } catch (error) {
+    diagnostics.push({
+      collection: primaryFiberCoverageCollection,
+      status: error?.code || 'error',
+      rows: 0,
+      primary: true,
+      message: error.message,
+    })
+    console.warn(`Não foi possível ler ${primaryFiberCoverageCollection} no Firestore.`, error)
+  }
+
   for (const collectionName of fiberCoverageCollections) {
+    if (collectionName === primaryFiberCoverageCollection) continue
     try {
       const snap = await getDocs(collection(db, collectionName))
       diagnostics.push({ collection: collectionName, status: snap.empty ? 'empty' : 'ok', rows: snap.size })
@@ -891,6 +925,14 @@ export async function searchFiberViability(filters = {}) {
 }
 
 export async function diagnoseFiberViability() {
+  let localBase = null
+  try {
+    const apiDiagnostics = await apiRequest('/api/fiber-viability/diagnostics')
+    localBase = apiDiagnostics?.localBase || null
+  } catch (apiError) {
+    console.warn('Diagnóstico local de fibra indisponível. Tentando Firestore/cache.', apiError)
+  }
+
   const diagnostics = []
   for (const collectionName of fiberCoverageCollections) {
     try {
@@ -911,9 +953,11 @@ export async function diagnoseFiberViability() {
   }
   const cachedRows = readJsonCache(FIBER_ROWS_CACHE_KEY)?.rows || []
   return {
+    localBase,
     collections: diagnostics,
     cachedRows: cachedRows.length,
-    hasData: diagnostics.some((item) => item.rows > 0) || cachedRows.length > 0,
+    primaryCollectionActive: diagnostics.some((item) => item.collection === primaryFiberCoverageCollection && item.rows > 0),
+    hasData: localBase?.status === 'active' || diagnostics.some((item) => item.rows > 0) || cachedRows.length > 0,
     checkedAt: new Date().toISOString(),
   }
 }
