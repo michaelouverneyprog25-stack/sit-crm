@@ -1,21 +1,39 @@
 {
-  "name": "SIT",
-  "short_name": "SIT",
-  "description": "SIT para vendas, metas, usuários e relatórios.",
+  "name": "SIT.LUMX CRM",
+  "short_name": "SIT.LUMX",
+  "description": "SIT.LUMX CRM para vendas, metas, usuários e relatórios.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#020617",
-  "theme_color": "#2563eb",
+  "background_color": "#05080d",
+  "theme_color": "#19e6ff",
   "categories": ["business", "productivity"],
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/icons/sit-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

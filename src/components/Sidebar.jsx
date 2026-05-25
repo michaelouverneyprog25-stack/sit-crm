@@ -2,6 +2,7 @@ import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { Activity, BarChart3, Building2, ClipboardList, Database, FileSpreadsheet, Goal, Gauge, LifeBuoy, ReceiptText, SearchCheck, ShoppingCart, Smartphone, TerminalSquare, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import Logo from './Logo'
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }){
   const { currentUser } = useAuth()
@@ -55,13 +56,16 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }){
   function UserBlock() {
     return (
       <div className="mb-6 rounded border border-white/10 bg-white/[0.04] p-4">
+        <div className="mb-4">
+          <Logo variant="full" size="sm" className="justify-center" />
+        </div>
         <div className="mb-3 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded bg-cyan-300 font-bold text-slate-950">
             {displayName.slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0">
             <div className="truncate font-semibold text-white">{displayName}</div>
-            <div className="truncate text-xs text-slate-400">SIT CRM</div>
+            <div className="truncate text-xs text-slate-400">SIT.LUMX CRM</div>
           </div>
         </div>
         <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">

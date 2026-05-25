@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { logout } from '../firebase/auth'
 import { useAuth } from '../contexts/AuthContext'
 import SyncStatus from './SyncStatus'
+import Logo from './Logo'
 
 export default function Navbar({ sidebarOpen, setSidebarOpen }){
   const {dark,setDark} = useTheme()
@@ -28,12 +29,8 @@ export default function Navbar({ sidebarOpen, setSidebarOpen }){
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
-          <Link to="/" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded bg-cyan-300 text-sm font-black text-slate-950">SIT</span>
-            <span>
-              <span className="block text-sm font-semibold leading-tight text-white">SIT CRM</span>
-              <span className="block text-xs text-slate-400">Vendas e metas</span>
-            </span>
+          <Link to="/" className="flex items-center">
+            <Logo variant="symbol" size="xs" />
           </Link>
         </div>
         <div className="flex flex-wrap items-center gap-3">

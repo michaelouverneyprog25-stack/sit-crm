@@ -364,7 +364,7 @@ export default function Reports() {
     ])
     const doc = new jsPDF({ unit: 'pt', format: 'letter' })
     doc.setFontSize(16)
-    doc.text('Relatório SIT', 40, 40)
+    doc.text('Relatório SIT.LUMX', 40, 40)
     doc.setFontSize(10)
     const filterType = filters.scope === 'store' ? 'Loja' : filters.scope === 'group' ? 'Grupo econômico' : 'Vendedor'
     doc.text(`Filtro: ${filterType} - ${selectedLabel}`, 40, 58)

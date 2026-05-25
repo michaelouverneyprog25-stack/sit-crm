@@ -3,6 +3,7 @@ import { BarChart3, Clock3, RefreshCw, ShoppingBag } from 'lucide-react'
 import { getGoalRankings, getGoals, getStores, getUsers, getVendas } from '../firebase/db'
 import { useAuth } from '../contexts/AuthContext'
 import { MetricCard, PageHeader } from '../components/ui'
+import Logo from '../components/Logo'
 
 const SERVICES = [
   'Pós',
@@ -1132,7 +1133,12 @@ export default function Dashboard() {
         eyebrow="Visão geral"
         title="Dashboard executivo"
         description="Acompanhamento em tempo real de vendas, metas, ranking, projeção e performance por loja e vendedor."
-        action={<button onClick={() => loadDashboard()} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 font-semibold"><RefreshCw className="h-4 w-4" />Atualizar</button>}
+        action={(
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Logo variant="full" size="sm" className="hidden md:inline-flex" />
+            <button onClick={() => loadDashboard()} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 font-semibold"><RefreshCw className="h-4 w-4" />Atualizar</button>
+          </div>
+        )}
       />
 
       <div className="grid gap-4 md:grid-cols-3">

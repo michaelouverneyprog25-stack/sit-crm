@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { login } from '../firebase/auth'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { reportError } from '../utils/operationLog'
+import Logo from '../components/Logo'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -42,8 +43,8 @@ export default function Login() {
     <div className="flex min-h-[78vh] items-center justify-center px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-md overflow-hidden rounded border border-white/10 bg-gray-800 shadow-2xl">
         <div className="border-b border-white/10 bg-gray-900 px-6 py-6">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded bg-cyan-300 text-lg font-black text-slate-950">SIT</div>
-          <h2 className="text-2xl font-semibold">Entrar no CRM</h2>
+          <Logo variant="full" size="lg" className="mb-4 justify-center" />
+          <h2 className="text-2xl font-semibold">Entrar no SIT.LUMX CRM</h2>
           <p className="mt-1 text-sm text-gray-400">Acesse sua conta para acompanhar vendas, metas e relatórios.</p>
         </div>
         <div className="p-6">

@@ -779,7 +779,7 @@ export default function Goals() {
         <div className="border-b border-white/10 bg-slate-900/80 px-5 py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">CRM SIT</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">SIT.LUMX CRM</p>
               <h1 className="mt-1 text-3xl font-semibold text-white">Metas</h1>
               <p className="mt-1 text-sm text-slate-300">
                 Painel mensal por serviço, com realizado sincronizado por vendedor, loja e grupo econômico.

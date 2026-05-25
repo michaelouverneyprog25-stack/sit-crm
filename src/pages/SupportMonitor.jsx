@@ -174,7 +174,7 @@ export default function SupportMonitor() {
       <PageHeader
         eyebrow="Suporte"
         title="Monitoramento de Erros"
-        description="Base ADM para acompanhar falhas do CRM SIT, acionar recuperação automática e exportar evidências para suporte."
+        description="Base ADM para acompanhar falhas do SIT.LUMX CRM, acionar recuperação automática e exportar evidências para suporte."
         action={(
           <button
             type="button"

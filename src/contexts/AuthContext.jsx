@@ -3,6 +3,7 @@ import { auth } from '../firebase/auth'
 import { onAuthStateChanged } from 'firebase/auth'
 import { getUserProfile } from '../firebase/db'
 import { reportError } from '../utils/operationLog'
+import Logo from '../components/Logo'
 
 const AuthContext = createContext()
 
@@ -81,8 +82,8 @@ export function AuthProvider({ children }) {
       {loading ? (
         <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
           <div className="text-center">
-            <div className="mx-auto mb-4 h-8 w-8 rounded-full border-2 border-white border-t-transparent animate-spin" />
-            <div className="text-sm text-gray-300">Carregando sessão...</div>
+            <Logo variant="symbol" size="lg" showText={false} className="sit-logo-pulse justify-center" />
+            <div className="mt-4 text-sm text-gray-300">Carregando SIT.LUMX...</div>
           </div>
         </div>
       ) : (

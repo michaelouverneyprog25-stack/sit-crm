@@ -1,8 +1,14 @@
-const CACHE_NAME = 'sit-v3'
+const CACHE_NAME = 'sit-lumx-v1'
 const APP_SHELL = [
   '/',
+  '/offline.html',
   '/manifest.webmanifest',
-  '/icons/sit-icon.svg',
+  '/favicon.ico',
+  '/brand/sit-lumx-logo-transparent.png',
+  '/brand/sit-lumx-symbol-transparent.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/maskable-icon-512.png',
 ]
 
 self.addEventListener('install', (event) => {
@@ -47,6 +53,6 @@ self.addEventListener('fetch', (event) => {
         return response
       })
       .catch(() => caches.match(request)
-        .then((cached) => cached || caches.match('/'))),
+        .then((cached) => cached || caches.match('/offline.html'))),
   )
 })
