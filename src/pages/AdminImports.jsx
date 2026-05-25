@@ -9,10 +9,11 @@ import {
   Loader2,
   Search,
   ShieldCheck,
+  Trash2,
   UploadCloud,
   XCircle,
 } from 'lucide-react'
-import { importBaseRows, subscribeImportHistory } from '../firebase/db'
+import { clearFiberCoverageBase, importBaseRows, subscribeImportHistory } from '../firebase/db'
 import { useAuth } from '../contexts/AuthContext'
 import { MetricCard, PageHeader, SkeletonRows } from '../components/ui'
 import { reportError } from '../utils/operationLog'
@@ -273,6 +274,7 @@ async function parseSpreadsheet(file, target) {
 
 function statusClass(status) {
   if (status === 'concluido') return 'border-emerald-300/30 bg-emerald-500/15 text-emerald-100'
+  if (status === 'base-limpa') return 'border-amber-300/30 bg-amber-500/15 text-amber-100'
   if (status === 'erro') return 'border-red-300/30 bg-red-500/15 text-red-100'
   return 'border-cyan-300/30 bg-cyan-500/15 text-cyan-100'
 }
@@ -292,6 +294,8 @@ export default function AdminImports() {
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [clearConfirmation, setClearConfirmation] = useState('')
+  const [clearingBase, setClearingBase] = useState(false)
 
   useEffect(() => {
     const unsubscribe = subscribeImportHistory((rows) => {
@@ -388,6 +392,39 @@ export default function AdminImports() {
     }
   }
 
+  async function clearFiberBase() {
+    if (clearConfirmation !== 'LIMPAR BASE FIBRA') {
+      setMessage('Digite LIMPAR BASE FIBRA para liberar a limpeza da base.')
+      return
+    }
+
+    setClearingBase(true)
+    setBusy(true)
+    setProgress(25)
+    setStatus('Limpando base de fibra...')
+    setMessage('Criando backup local e removendo registros do Firestore.')
+
+    try {
+      const result = await clearFiberCoverageBase({ confirmation: clearConfirmation })
+      setParsed(null)
+      setFileInfo(null)
+      setSearch('')
+      setPage(1)
+      setProgress(100)
+      setStatus('Base de fibra limpa')
+      setMessage(`${result.deletedRows || 0} registro(s) removido(s) do Firestore. Backup local preservado em ${result.backup?.backupFile || 'data/fiber-backups'}.`)
+      setClearConfirmation('')
+    } catch (error) {
+      reportError(error, { source: 'AdminImports', action: 'limpar base fibra', module: 'importacao excel', severity: 'critico', autoFix: false })
+      setStatus('Erro ao limpar base')
+      setMessage(error.message || 'Não foi possível limpar a base de fibra.')
+      setProgress(0)
+    } finally {
+      setClearingBase(false)
+      setBusy(false)
+    }
+  }
+
   function onDrop(event) {
     event.preventDefault()
     setDragging(false)
@@ -432,6 +469,7 @@ export default function AdminImports() {
                   setMessage('')
                   setProgress(0)
                   setStatus('Aguardando planilha')
+                  setClearConfirmation('')
                 }}
                 className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2.5 text-sm text-white"
                 disabled={busy}
@@ -495,6 +533,41 @@ export default function AdminImports() {
               <div className="h-full rounded-full bg-cyan-300 transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
           </div>
+
+          {target === 'viabilidade_fibra' && (
+            <div className="mt-5 rounded-lg border border-red-300/25 bg-red-500/10 p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-red-100">
+                    <Trash2 className="h-4 w-4" />
+                    Limpar base de Viabilidade Fibra
+                  </div>
+                  <p className="mt-1 text-sm text-red-100/80">
+                    Cria backup da base local, zera o CSV ativo e remove os registros das collections de fibra no Firestore.
+                  </p>
+                  <p className="mt-1 text-xs text-red-100/60">Para liberar, digite LIMPAR BASE FIBRA.</p>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[320px]">
+                  <input
+                    value={clearConfirmation}
+                    onChange={(event) => setClearConfirmation(event.target.value)}
+                    placeholder="LIMPAR BASE FIBRA"
+                    className="rounded-lg border border-red-200/20 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                    disabled={busy}
+                  />
+                  <button
+                    type="button"
+                    onClick={clearFiberBase}
+                    disabled={busy || clearConfirmation !== 'LIMPAR BASE FIBRA'}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {clearingBase ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Limpar local e Firestore
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </motion.section>
 
         <section className="rounded-xl border border-white/10 bg-slate-900/70 p-5 shadow-2xl">

@@ -1087,6 +1087,25 @@ export async function importBaseRows({
   })
 }
 
+export async function clearFiberCoverageBase({ confirmation } = {}) {
+  if (confirmation !== 'LIMPAR BASE FIBRA') {
+    throw new Error('Confirmação inválida para limpar a base de fibra.')
+  }
+
+  const result = await apiRequest('/api/fiber-viability/clear', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmation }),
+  })
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(FIBER_ROWS_CACHE_KEY)
+    window.localStorage.removeItem(FIBER_CITIES_CACHE_KEY)
+  }
+
+  return result
+}
+
 export async function distributeStoreGoals(data) {
   try {
     return await apiRequest('/api/goals/distribute-store', {

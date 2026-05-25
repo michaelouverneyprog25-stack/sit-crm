@@ -62,6 +62,47 @@ const GOALS_CACHE_FILE = path.join(DATA_DIR, 'goals-cache.json')
 const COMMISSION_RULES_CACHE_FILE = path.join(DATA_DIR, 'commission-rules-cache.json')
 const FIBER_COVERAGE_FILE = path.join(DATA_DIR, 'fiber-coverage.csv')
 const FIBER_REQUIRED_HEADERS = ['UF', 'MUNICIPIO', 'CEP', 'LOGRADOURO', 'BAIRRO', 'VIABILIDADE']
+const FIBER_COVERAGE_COLLECTIONS = [
+  'viabilidade_fibra',
+  'fiberCoverage',
+  'fiberViability',
+  'fiberCoverageCities',
+  'fiberCities',
+  'cidadesFibra',
+  'viabilidadeFibra',
+]
+const FIBER_CANONICAL_HEADERS = [
+  'DT_REF',
+  'UF',
+  'MUNICIPIO',
+  'CEP',
+  'LOGRADOURO',
+  'NUM_LOGRADOURO',
+  'COMPLEMENTO',
+  'COMPLEMENTO2',
+  'COMPLEMENTO3',
+  'COMPLEMENTO4',
+  'COMPLEMENTO5',
+  'BAIRRO',
+  'QTD_HH',
+  'LATITUDE',
+  'LONGITUDE',
+  'ID_LOTE',
+  'VIABILIDADE',
+  'MOTIVO',
+  'TIPO_LOTE',
+  'QTD_INFRACO',
+  'INFRACO_PRINCIPAL',
+  'INFRACO_SECUNDÁRIA',
+  'INFRACO_TERCIÁRIA',
+  'OLT',
+  'SEGMENTACAO_OLT',
+  'ID_CAPACITY',
+  'ORD_INFRACO',
+  'BLOQ_CAPACITY',
+  'MOTIVO_CAPACITY',
+  'AJUSTE_CAPACITY',
+]
 const FIRESTORE_QUOTA_PAUSE_MS = 5 * 60 * 1000
 let firestoreQuotaPausedUntil = 0
 let fiberCitiesCache = { mtimeMs: 0, cities: [] }
@@ -2763,6 +2804,42 @@ function getFiberCoverageFileStatus() {
   }
 }
 
+function createFiberLocalBackup(reason = 'manual-clear') {
+  const backupStamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const backupDir = path.join(DATA_DIR, 'fiber-backups', backupStamp)
+  fs.mkdirSync(backupDir, { recursive: true })
+  const manifest = {
+    createdAt: new Date().toISOString(),
+    reason,
+    activeFile: FIBER_COVERAGE_FILE,
+    backupFile: '',
+    status: 'archived',
+  }
+
+  if (fs.existsSync(FIBER_COVERAGE_FILE)) {
+    manifest.backupFile = path.join(backupDir, 'fiber-coverage.previous.csv')
+    fs.copyFileSync(FIBER_COVERAGE_FILE, manifest.backupFile)
+  }
+  fs.writeFileSync(path.join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2))
+  return manifest
+}
+
+async function deleteCollectionInBatches(collectionName, batchSize = 400) {
+  let deleted = 0
+  while (true) {
+    const snap = await db.collection(collectionName).limit(batchSize).get()
+    if (snap.empty) break
+    const batch = db.batch()
+    snap.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref)
+    })
+    await batch.commit()
+    deleted += snap.size
+    if (snap.size < batchSize) break
+  }
+  return deleted
+}
+
 function fiberRowMatches(row, filters) {
   if (filters.city && !normalizeSearchValue(row.city).includes(filters.city)) return false
   if (filters.cep && !onlyDigits(row.cep).startsWith(filters.cep)) return false
@@ -2900,6 +2977,65 @@ app.get('/api/fiber-viability/diagnostics', async (req, res) => {
   } catch (error) {
     console.error('Erro ao diagnosticar base de fibra:', error)
     res.status(500).json({ message: error.message || 'Não foi possível diagnosticar a base de fibra.' })
+  }
+})
+
+app.post('/api/fiber-viability/clear', async (req, res) => {
+  try {
+    if (normalizeRole(req.actorRole) !== 'Administrador') {
+      return res.status(403).json({ message: 'Apenas Administrador pode limpar a base de fibra.' })
+    }
+
+    if (req.body?.confirmation !== 'LIMPAR BASE FIBRA') {
+      return res.status(400).json({ message: 'Confirmação inválida. Digite LIMPAR BASE FIBRA para continuar.' })
+    }
+
+    const backup = createFiberLocalBackup('admin-clear-fiber-base')
+    fs.mkdirSync(DATA_DIR, { recursive: true })
+    fs.writeFileSync(FIBER_COVERAGE_FILE, `${FIBER_CANONICAL_HEADERS.join(';')}\n`)
+    fiberCitiesCache = { mtimeMs: 0, cities: [] }
+
+    const deletedByCollection = {}
+    for (const collectionName of FIBER_COVERAGE_COLLECTIONS) {
+      deletedByCollection[collectionName] = await deleteCollectionInBatches(collectionName)
+    }
+
+    const totalDeleted = Object.values(deletedByCollection).reduce((sum, value) => sum + value, 0)
+    try {
+      await db.collection('importHistory').add({
+        target: 'viabilidade_fibra',
+        targetCollection: 'viabilidade_fibra',
+        fileName: 'Limpeza manual da base de fibra',
+        userId: req.currentUser.uid || '',
+        userName: req.currentUser.name || req.currentUser.email || 'Administrador',
+        userEmail: req.currentUser.email || '',
+        status: 'base-limpa',
+        action: 'clear-fiber-base',
+        importedRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        duplicateRows: 0,
+        deletedRows: totalDeleted,
+        deletedByCollection,
+        backup,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        finishedAt: new Date().toISOString(),
+      })
+    } catch (historyError) {
+      console.warn('Base de fibra limpa, mas não foi possível registrar histórico:', historyError.message || historyError)
+    }
+
+    res.status(200).json({
+      message: 'Base de fibra limpa com backup criado.',
+      deletedRows: totalDeleted,
+      deletedByCollection,
+      backup,
+      localBase: getFiberCoverageFileStatus(),
+    })
+  } catch (error) {
+    console.error('Erro ao limpar base de fibra:', error)
+    res.status(500).json({ message: error.message || 'Não foi possível limpar a base de fibra.' })
   }
 })
 
