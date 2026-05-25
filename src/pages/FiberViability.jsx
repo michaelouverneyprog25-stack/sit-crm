@@ -21,6 +21,12 @@ function formatCep(value) {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`
 }
 
+function formatCepInput(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 5) return digits
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`
+}
+
 function isViable(row) {
   return String(row.viability || '').toLowerCase().includes('viável')
     || String(row.viabilityCode || '') === '1'
@@ -196,10 +202,11 @@ export default function FiberViability() {
             <span>CEP</span>
             <input
               name="cep"
-              value={filters.cep}
+              value={formatCepInput(filters.cep)}
               onChange={changeFilter}
-              placeholder="Ex.: 22290190"
-              maxLength={8}
+              placeholder="Ex.: 23093-240"
+              inputMode="numeric"
+              maxLength={9}
               className="h-11 bg-gray-700 px-3 rounded"
             />
           </label>

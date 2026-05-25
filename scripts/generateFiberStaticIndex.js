@@ -127,10 +127,14 @@ async function main() {
         label: uf ? `${city} / ${uf}` : city,
         file: `${slugify(`${city}-${uf}`)}.json`,
         rows: [],
+        cepPrefixes: new Set(),
       })
     }
 
-    byCity.get(key).rows.push(makeRow(values, headers))
+    const cep = onlyDigits(getValue(values, headers, 'CEP'))
+    const cityItem = byCity.get(key)
+    if (cep.length >= 5) cityItem.cepPrefixes.add(cep.slice(0, 5))
+    cityItem.rows.push(makeRow(values, headers))
     totalRows += 1
   }
 
@@ -148,19 +152,22 @@ async function main() {
     fs.writeFileSync(path.join(OUTPUT_DIR, item.file), JSON.stringify(payload))
   }
 
+  const cityIndex = cities.map(({ city, uf, label, file, rows, cepPrefixes }) => ({
+    city,
+    uf,
+    label,
+    file,
+    rows: rows.length,
+    cepPrefixes: [...cepPrefixes].sort(),
+  }))
+
   const index = {
     generatedAt,
     source: 'data/fiber-coverage.csv',
     count: cities.length,
     totalRows,
     columns: COLUMNS,
-    cities: cities.map(({ city, uf, label, file, rows }) => ({
-      city,
-      uf,
-      label,
-      file,
-      rows: rows.length,
-    })),
+    cities: cityIndex,
   }
 
   fs.writeFileSync(path.join(OUTPUT_DIR, 'index.json'), JSON.stringify(index, null, 2))
@@ -169,7 +176,7 @@ async function main() {
     source: 'data/fiber-coverage.csv',
     count: cities.length,
     totalRows,
-    cities: index.cities.map(({ city, uf, label, file, rows }) => ({ city, uf, label, file, rows })),
+    cities: cityIndex.map(({ city, uf, label, file, rows }) => ({ city, uf, label, file, rows })),
   }, null, 2))
 
   console.log({

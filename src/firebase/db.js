@@ -918,9 +918,14 @@ async function searchStaticFiberViability(filters = {}, limit = 150) {
   if (!cityEntries.length) return null
 
   const selectedCity = normalizeText(filters.city)
-  const citiesToSearch = selectedCity
+  const cepDigits = onlyDigits(filters.cep)
+  const cepPrefix = cepDigits.length >= 5 ? cepDigits.slice(0, 5) : ''
+  const selectedCities = selectedCity
     ? cityEntries.filter((item) => normalizeText(item.city) === selectedCity)
     : cityEntries
+  const citiesToSearch = cepPrefix
+    ? selectedCities.filter((item) => Array.isArray(item.cepPrefixes) && item.cepPrefixes.includes(cepPrefix))
+    : selectedCities
 
   if (!citiesToSearch.length) {
     return {
