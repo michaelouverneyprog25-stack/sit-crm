@@ -3,6 +3,8 @@ import { getStores, getUsers, getVendas } from '../firebase/db'
 import { useAuth } from '../contexts/AuthContext'
 import { appendJsonSheet, createWorkbook, writeWorkbook } from '../utils/excelExport'
 
+const MANAGER_COMMISSION_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
+
 function parseDate(value) {
   if (!value) return null
   if (value.toDate) return value.toDate()
@@ -87,8 +89,8 @@ function getStoreField(sale, users, fieldName) {
   return ''
 }
 
-function getFields(users) {
-  return [
+function getFields(users, canViewManagerCommission = false) {
+  const fields = [
     { label: 'Data da venda', value: formatSaleDate },
     { label: 'Cliente', value: (sale) => sale.customer || '' },
     { label: 'CPF', value: (sale) => sale.cpf || '' },
@@ -116,11 +118,16 @@ function getFields(users) {
     { label: 'Comissao vendedor', value: (sale) => formatCurrency(sale.commission), excelValue: (sale) => numberOrBlank(sale.commission) },
     { label: 'Comissao upgrade', value: (sale) => formatCurrency(sale.commissionDetails?.upgrade?.amount), excelValue: (sale) => numberOrBlank(sale.commissionDetails?.upgrade?.amount) },
     { label: 'Comissao seguro', value: (sale) => formatCurrency(sale.commissionDetails?.insurance?.amount), excelValue: (sale) => numberOrBlank(sale.commissionDetails?.insurance?.amount) },
-    { label: 'Comissao Gerente', value: (sale) => formatCurrency(sale.storeCommission), excelValue: (sale) => numberOrBlank(sale.storeCommission) },
     { label: 'Percentual comissao', value: (sale) => sale.commissionRate ? `${Number(sale.commissionRate * 100).toFixed(2)}%` : '', excelValue: (sale) => numberOrBlank(sale.commissionRate) },
     { label: 'Criado em', value: (sale) => formatDateTime(sale.createdAt) },
     { label: 'Atualizado em', value: (sale) => formatDateTime(sale.updatedAt) },
   ]
+
+  if (canViewManagerCommission) {
+    fields.splice(28, 0, { label: 'Comissao Gerente', value: (sale) => formatCurrency(sale.storeCommission), excelValue: (sale) => numberOrBlank(sale.storeCommission) })
+  }
+
+  return fields
 }
 
 export default function AllSalesReport() {
@@ -161,7 +168,8 @@ export default function AllSalesReport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const fields = useMemo(() => getFields(users), [users])
+  const canViewManagerCommission = MANAGER_COMMISSION_ROLES.includes(currentUser?.role)
+  const fields = useMemo(() => getFields(users, canViewManagerCommission), [canViewManagerCommission, users])
   const canFilterStores = ['Administrador', 'Gestor Master'].includes(currentUser?.role)
   const storeOptions = useMemo(() => {
     const byName = new Map()
@@ -294,10 +302,12 @@ export default function AllSalesReport() {
           <div className="text-sm text-gray-400">Comissao vendedor</div>
           <div className="text-2xl font-semibold">{formatCurrency(totals.commission)}</div>
         </div>
-        <div className="bg-gray-800 p-4 rounded">
-          <div className="text-sm text-gray-400">Comissao Gerente</div>
-          <div className="text-2xl font-semibold">{formatCurrency(totals.storeCommission)}</div>
-        </div>
+        {canViewManagerCommission && (
+          <div className="bg-gray-800 p-4 rounded">
+            <div className="text-sm text-gray-400">Comissao Gerente</div>
+            <div className="text-2xl font-semibold">{formatCurrency(totals.storeCommission)}</div>
+          </div>
+        )}
       </div>
 
       <div className="bg-gray-800 p-4 rounded mb-4">

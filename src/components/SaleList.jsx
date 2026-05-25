@@ -1,4 +1,7 @@
 import React from 'react'
+import { useAuth } from '../contexts/AuthContext'
+
+const MANAGER_COMMISSION_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
 
 function formatCurrency(value) {
   const amount = Number(value)
@@ -24,6 +27,9 @@ function formatSaleDate(value) {
 }
 
 export default function SaleList({ items, loading = false, onEdit, onDelete }) {
+  const { currentUser } = useAuth()
+  const canViewManagerCommission = MANAGER_COMMISSION_ROLES.includes(currentUser?.role)
+
   return (
     <div className="rounded-xl border border-white/10 bg-gray-800/95 p-5 shadow-lg shadow-blue-950/20">
       <div className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
@@ -106,7 +112,7 @@ export default function SaleList({ items, loading = false, onEdit, onDelete }) {
                   <span className="text-gray-400">Comissão vendedor</span>
                   <span className="font-semibold text-white">{formatCurrency(s.commission || 0)}</span>
                 </div>
-                {Number(s.storeCommission || 0) > 0 && (
+                {canViewManagerCommission && Number(s.storeCommission || 0) > 0 && (
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-gray-400">Comissão Gerente</span>
                     <span className="font-semibold text-white">{formatCurrency(s.storeCommission || 0)}</span>

@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { getMetas, getStores, getUsers, getVendas } from '../firebase/db'
 import ChartCard from '../components/ChartCard'
+import { useAuth } from '../contexts/AuthContext'
 import { appendAoaSheet, createWorkbook, writeWorkbook } from '../utils/excelExport'
+
+const MANAGER_COMMISSION_ROLES = ['Administrador', 'Gestor Master', 'Gerente']
 
 const REPORT_OPTIONS = [
   { key: 'summary', label: 'Resumo' },
@@ -230,6 +233,7 @@ function reportSelected(selectedReports, key) {
 }
 
 export default function Reports() {
+  const { currentUser } = useAuth()
   const [sales, setSales] = useState([])
   const [metas, setMetas] = useState([])
   const [users, setUsers] = useState([])
@@ -317,6 +321,7 @@ export default function Reports() {
 
   const hasSelection = (filters.scope === 'store' && filters.storeName) || (filters.scope === 'seller' && filters.sellerKey) || (filters.scope === 'group' && filters.groupName)
   const hasSelectedReports = selectedReports.length > 0
+  const canViewManagerCommission = MANAGER_COMMISSION_ROLES.includes(currentUser?.role)
   const selectedLabel = filters.scope === 'store'
     ? filters.storeName
     : filters.scope === 'group'
@@ -640,7 +645,9 @@ export default function Reports() {
         ['Status', ...saleValues.map((sale) => sale.status || '')],
         ['Valor', ...saleValues.map((sale) => (hasSales ? Number(sale.amount || 0) : ''))],
         ['Comissão vendedor', ...saleValues.map((sale) => (hasSales ? Number(sale.commission || 0) : ''))],
-        ['Comissão Gerente', ...saleValues.map((sale) => (hasSales ? Number(sale.storeCommission || 0) : ''))],
+        ...(canViewManagerCommission ? [
+          ['Comissão Gerente', ...saleValues.map((sale) => (hasSales ? Number(sale.storeCommission || 0) : ''))],
+        ] : []),
       ])
     }
 
