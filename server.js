@@ -1655,19 +1655,22 @@ function getInsuranceValue(sale) {
 
 function getSaleGoalValue(sale, type) {
   const amount = getSaleRevenueValue(sale)
+  const isUpgradeSale = sale.saleType === 'Upgrade'
   switch (type) {
     case 'Receita Total':
       return amount
     case 'Aparelhos':
       return hasDeviceSale(sale) ? Number(sale.deviceValue || 0) : 0
     case 'Controle':
+      if (isUpgradeSale) return 0
       return planStartsWith(sale, 'CONTROLE') ? 1 : 0
     case 'Pós':
     case 'Planos Pós':
+      if (isUpgradeSale) return 0
       if (isDependentSale(sale)) return getDependentCount(sale)
       return planStartsWith(sale, 'BLACK') ? 1 + getDependentCount(sale) : 0
     case 'Upgrade':
-      return sale.saleType === 'Upgrade' ? 1 : 0
+      return isUpgradeSale ? 1 : 0
     case 'Portabilidade':
       return hasPortability(sale) ? 1 : 0
     case 'DACC':

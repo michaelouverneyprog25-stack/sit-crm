@@ -23,6 +23,8 @@ const RANKING_GOAL_TYPES = new Set(SERVICES)
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const ECONOMIC_GROUP_NAME = 'INTERCELL'
+const HOURLY_PARTIAL_START = 9
+const HOURLY_PARTIAL_END = 21
 
 function defaultFilters() {
   const now = new Date()
@@ -184,18 +186,21 @@ function getInsuranceValue(sale) {
 
 function getSaleGoalValue(sale, type) {
   const amount = getSaleRevenueValue(sale)
+  const isUpgradeSale = sale.saleType === 'Upgrade'
   switch (type) {
     case 'Receita Total':
       return amount
     case 'Aparelhos':
       return hasDeviceSale(sale) ? Number(sale.deviceValue || 0) : 0
     case 'Controle':
+      if (isUpgradeSale) return 0
       return planStartsWith(sale, 'CONTROLE') ? 1 : 0
     case 'Pós':
+      if (isUpgradeSale) return 0
       if (isDependentSale(sale)) return getDependentCount(sale) || 1
       return planStartsWith(sale, 'BLACK') ? 1 + getDependentCount(sale) : 0
     case 'Upgrade':
-      return sale.saleType === 'Upgrade' ? 1 : 0
+      return isUpgradeSale ? 1 : 0
     case 'Portabilidade':
       return hasPortability(sale) ? 1 : 0
     case 'DACC':
@@ -352,21 +357,27 @@ function getSaleDateTime(sale) {
 }
 
 function buildHourlyPartialRows(sales) {
-  const rows = Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    label: `${String(hour).padStart(2, '0')}h`,
-    gross: 0,
-    portability: 0,
-    fiber: 0,
-    revenue: 0,
-  }))
+  const rows = Array.from({ length: HOURLY_PARTIAL_END - HOURLY_PARTIAL_START + 1 }, (_, index) => {
+    const hour = HOURLY_PARTIAL_START + index
+    return {
+      hour,
+      label: `${String(hour).padStart(2, '0')}h`,
+      gross: 0,
+      upgrade: 0,
+      portability: 0,
+      fiber: 0,
+      revenue: 0,
+    }
+  })
+  const rowsByHour = new Map(rows.map((row) => [row.hour, row]))
 
   sales.forEach((sale) => {
     const date = getSaleDateTime(sale)
     if (!date) return
-    const row = rows[date.getHours()]
+    const row = rowsByHour.get(date.getHours())
     if (!row) return
     row.gross += getSaleGoalValue(sale, 'Pós') + getSaleGoalValue(sale, 'Controle')
+    row.upgrade += getSaleGoalValue(sale, 'Upgrade')
     row.portability += getSaleGoalValue(sale, 'Portabilidade')
     row.fiber += getSaleGoalValue(sale, 'Fibra')
     row.revenue += getSaleGoalValue(sale, 'Receita Total')
@@ -378,10 +389,11 @@ function buildHourlyPartialRows(sales) {
 function getHourlyPartialTotals(rows) {
   return rows.reduce((totals, row) => ({
     gross: totals.gross + row.gross,
+    upgrade: totals.upgrade + row.upgrade,
     portability: totals.portability + row.portability,
     fiber: totals.fiber + row.fiber,
     revenue: totals.revenue + row.revenue,
-  }), { gross: 0, portability: 0, fiber: 0, revenue: 0 })
+  }), { gross: 0, upgrade: 0, portability: 0, fiber: 0, revenue: 0 })
 }
 
 function buildEmptySeries(chartPeriod, filters) {
@@ -533,8 +545,6 @@ function CompactColumnChart({ title, subtitle, rows, emptyText }) {
 }
 
 function HourlyPartialTable({ title, subtitle, rows, totals }) {
-  const hasValues = rows.some((row) => row.gross || row.portability || row.fiber || row.revenue)
-
   return (
     <section className="rounded-lg border border-white/10 bg-gray-800 p-5">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -542,10 +552,14 @@ function HourlyPartialTable({ title, subtitle, rows, totals }) {
           <h2 className="text-xl font-semibold">{title}</h2>
           <div className="text-sm text-gray-400">{subtitle}</div>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
           <div className="rounded border border-white/10 bg-gray-900 px-3 py-2">
             <div className="text-gray-400">Gross</div>
             <div className="font-semibold">{formatQuantity(totals.gross)}</div>
+          </div>
+          <div className="rounded border border-white/10 bg-gray-900 px-3 py-2">
+            <div className="text-gray-400">Upgrade</div>
+            <div className="font-semibold">{formatQuantity(totals.upgrade)}</div>
           </div>
           <div className="rounded border border-white/10 bg-gray-900 px-3 py-2">
             <div className="text-gray-400">Portabilidade</div>
@@ -561,36 +575,32 @@ function HourlyPartialTable({ title, subtitle, rows, totals }) {
           </div>
         </div>
       </div>
-      {hasValues ? (
-        <div className="max-h-[460px] overflow-auto rounded border border-white/10">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead className="sticky top-0 bg-gray-900 text-left text-xs uppercase text-gray-400">
-              <tr>
-                <th className="p-3">Hora</th>
-                <th className="p-3">Gross</th>
-                <th className="p-3">Portabilidade</th>
-                <th className="p-3">Fibra</th>
-                <th className="p-3">Receita</th>
+      <div className="max-h-[460px] overflow-auto rounded border border-white/10">
+        <table className="w-full min-w-[820px] border-collapse text-sm">
+          <thead className="sticky top-0 bg-gray-900 text-left text-xs uppercase text-gray-400">
+            <tr>
+              <th className="p-3">Hora</th>
+              <th className="p-3">Gross</th>
+              <th className="p-3">Upgrade</th>
+              <th className="p-3">Portabilidade</th>
+              <th className="p-3">Fibra</th>
+              <th className="p-3">Receita</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.hour} className="border-t border-white/10">
+                <td className="p-3 font-semibold text-gray-200">{row.label}</td>
+                <td className="p-3">{formatQuantity(row.gross)}</td>
+                <td className="p-3">{formatQuantity(row.upgrade)}</td>
+                <td className="p-3">{formatQuantity(row.portability)}</td>
+                <td className="p-3">{formatQuantity(row.fiber)}</td>
+                <td className="p-3">R$ {formatNumber(row.revenue)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.hour} className="border-t border-white/10">
-                  <td className="p-3 font-semibold text-gray-200">{row.label}</td>
-                  <td className="p-3">{formatQuantity(row.gross)}</td>
-                  <td className="p-3">{formatQuantity(row.portability)}</td>
-                  <td className="p-3">{formatQuantity(row.fiber)}</td>
-                  <td className="p-3">R$ {formatNumber(row.revenue)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="rounded border border-white/10 bg-gray-900 p-4 text-gray-400">
-          Sem vendas para a parcial hora a hora nesse período.
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }

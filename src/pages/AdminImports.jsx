@@ -26,18 +26,30 @@ const targetConfigs = {
     label: 'Viabilidade Fibra',
     description: 'Cidade, bairro, CEP, logradouro e status de viabilidade.',
     collectionLabel: '/viabilidade_fibra',
-    required: ['city', 'neighborhood', 'cep', 'viability'],
+    required: ['city', 'neighborhood', 'cep'],
     aliases: {
       city: ['cidade', 'municipio', 'localidade', 'city'],
       neighborhood: ['bairro', 'neighborhood'],
       cep: ['cep', 'codigo postal', 'cod postal'],
-      viability: ['viabilidade', 'status', 'motivo', 'situacao'],
+      viabilityCode: ['viabilidade', 'codigo viabilidade', 'código viabilidade'],
+      viability: ['motivo', 'status', 'situacao', 'situação', 'observacao', 'observação'],
       uf: ['uf', 'estado'],
       street: ['logradouro', 'rua', 'endereco', 'street'],
-      number: ['numero', 'num', 'numero endereco'],
+      number: ['num logradouro', 'num_logradouro', 'numero', 'número', 'num', 'numero endereco'],
       complement: ['complemento', 'compl'],
+      complement2: ['complemento2', 'complemento 2'],
+      complement3: ['complemento3', 'complemento 3'],
+      complement4: ['complemento4', 'complemento 4'],
+      complement5: ['complemento5', 'complemento 5'],
+      households: ['qtd hh', 'qtd_hh', 'domicilios', 'domicílios', 'hh'],
       latitude: ['latitude', 'lat'],
       longitude: ['longitude', 'lng', 'long'],
+      lotType: ['tipo lote', 'tipo_lote'],
+      infraProvider: ['infraco principal', 'infraco_principal', 'provedor infra'],
+      olt: ['olt'],
+      oltSegmentation: ['segmentacao olt', 'segmentação olt', 'segmentacao_olt'],
+      capacityBlocked: ['bloq capacity', 'bloq_capacity', 'bloqueio capacidade'],
+      capacityReason: ['motivo capacity', 'motivo_capacity'],
     },
   },
   clientes: {
@@ -157,7 +169,7 @@ function buildDocId(target, row, index) {
       row.cep,
       row.street,
       row.number,
-      row.viability,
+      row.viabilityCode || row.viability,
     ].map(normalizeKey).filter(Boolean).join('|')
   }
   if (target === 'clientes') return normalizeKey(row.cpf || row.phone || `${row.name}-${index}`)
@@ -180,6 +192,8 @@ function mapRow(target, row, headerMap, index) {
     mapped.cep = onlyDigits(mapped.cep).slice(0, 8)
     mapped.city = mapped.city.toUpperCase()
     mapped.neighborhood = mapped.neighborhood.toUpperCase()
+    mapped.street = mapped.street.toUpperCase()
+    mapped.households = parseNumber(mapped.households)
     mapped.viability = mapped.viability || 'Nao informado'
   }
 
@@ -213,6 +227,9 @@ function mapRow(target, row, headerMap, index) {
 
 function validateRow(target, row, index) {
   const missing = targetConfigs[target].required.filter((field) => !String(row[field] ?? '').trim())
+  if (target === 'viabilidade_fibra' && !String(row.viabilityCode || row.viability || '').trim()) {
+    missing.push('viability')
+  }
   if (target === 'metas' && (!row.month || row.month < 1 || row.month > 12)) missing.push('month')
   if (target === 'metas' && (!row.year || row.year < 2020)) missing.push('year')
   if (missing.length) {

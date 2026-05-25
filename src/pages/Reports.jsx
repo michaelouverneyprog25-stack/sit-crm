@@ -5,6 +5,7 @@ import { appendAoaSheet, createWorkbook, writeWorkbook } from '../utils/excelExp
 
 const REPORT_OPTIONS = [
   { key: 'summary', label: 'Resumo' },
+  { key: 'hourly', label: 'Hora a Hora' },
   { key: 'monthly', label: 'Receita mensal' },
   { key: 'goals', label: 'Meta x Realizado' },
   { key: 'status', label: 'Status das vendas' },
@@ -29,6 +30,8 @@ const SERVICES = [
 ]
 const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros'])
 const ECONOMIC_GROUP_NAME = 'INTERCELL'
+const HOURLY_PARTIAL_START = 9
+const HOURLY_PARTIAL_END = 21
 
 function formatter(value) {
   return `R$ ${Number(value || 0).toFixed(2)}`
@@ -53,6 +56,14 @@ function normalize(value) {
     .toLowerCase()
 }
 
+function normalizeGoalText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase()
+}
+
 function getDateValue(date) {
   if (!date) return null
   if (date.toDate) return date.toDate()
@@ -68,6 +79,15 @@ function getSaleDate(sale) {
   return getDateValue(sale.createdAt)
 }
 
+function getSaleDateTime(sale) {
+  if (sale.saleDate && sale.saleTime) {
+    const time = String(sale.saleTime).slice(0, 5)
+    const date = new Date(`${sale.saleDate}T${time}:00`)
+    if (!Number.isNaN(date.getTime())) return date
+  }
+  return getDateValue(sale.createdAt) || getSaleDate(sale)
+}
+
 function getSaleRevenueValue(sale) {
   if (normalize(sale.plan) === 'dependente') return 0
   if (sale.saleType === 'Upgrade') return 0
@@ -76,6 +96,84 @@ function getSaleRevenueValue(sale) {
     ? Number(sale.planValue || 0)
     : Number(sale.amount || 0)
   return Number.isFinite(value) ? value : 0
+}
+
+function planStartsWith(sale, prefix) {
+  return normalizeGoalText(sale.plan).startsWith(normalizeGoalText(prefix))
+}
+
+function planIncludes(sale, text) {
+  return normalizeGoalText(sale.plan).includes(normalizeGoalText(text))
+}
+
+function isDependentSale(sale) {
+  return normalizeGoalText(sale.plan) === 'DEPENDENTE'
+}
+
+function getDependentCount(sale) {
+  const count = Math.max(0, Number(sale.dependentCount ?? sale.dependents ?? 0) || 0)
+  return count || (isDependentSale(sale) ? 1 : 0)
+}
+
+function hasPortability(sale) {
+  return sale.saleType === 'Portabilidade'
+    || normalize(sale.saleType).includes('portabilidade')
+    || normalize(sale.portability).includes('sim')
+    || normalize(sale.portabilidade).includes('sim')
+    || Boolean(String(sale.provisionalNumber || '').trim())
+}
+
+function getSaleGoalValue(sale, type) {
+  const isUpgradeSale = sale.saleType === 'Upgrade'
+  switch (type) {
+    case 'Receita Total':
+      return getSaleRevenueValue(sale)
+    case 'Controle':
+      if (isUpgradeSale) return 0
+      return planStartsWith(sale, 'CONTROLE') ? 1 : 0
+    case 'Pós':
+      if (isUpgradeSale) return 0
+      if (isDependentSale(sale)) return getDependentCount(sale) || 1
+      return planStartsWith(sale, 'BLACK') ? 1 + getDependentCount(sale) : 0
+    case 'Upgrade':
+      return isUpgradeSale ? 1 : 0
+    case 'Portabilidade':
+      return hasPortability(sale) ? 1 : 0
+    case 'Fibra':
+      return planIncludes(sale, 'FIBRA') || normalize(sale.saleType).includes('fibra') || normalize(sale.access).includes('fibra') ? 1 : 0
+    default:
+      return 0
+  }
+}
+
+function buildHourlyPartialRows(sales) {
+  const rows = Array.from({ length: HOURLY_PARTIAL_END - HOURLY_PARTIAL_START + 1 }, (_, index) => {
+    const hour = HOURLY_PARTIAL_START + index
+    return {
+      hour,
+      label: `${String(hour).padStart(2, '0')}h`,
+      gross: 0,
+      upgrade: 0,
+      portability: 0,
+      fiber: 0,
+      revenue: 0,
+    }
+  })
+  const rowsByHour = new Map(rows.map((row) => [row.hour, row]))
+
+  sales.forEach((sale) => {
+    const date = getSaleDateTime(sale)
+    if (!date) return
+    const row = rowsByHour.get(date.getHours())
+    if (!row) return
+    row.gross += getSaleGoalValue(sale, 'Pós') + getSaleGoalValue(sale, 'Controle')
+    row.upgrade += getSaleGoalValue(sale, 'Upgrade')
+    row.portability += getSaleGoalValue(sale, 'Portabilidade')
+    row.fiber += getSaleGoalValue(sale, 'Fibra')
+    row.revenue += getSaleGoalValue(sale, 'Receita Total')
+  })
+
+  return rows
 }
 
 function getUserForSale(sale, users) {
@@ -250,6 +348,8 @@ export default function Reports() {
     return { revenue, closed, pending, lost }
   }, [filteredSales])
 
+  const hourlyPartialRows = useMemo(() => buildHourlyPartialRows(filteredSales), [filteredSales])
+
   const statusData = useMemo(() => {
     const counts = {}
     filteredSales.forEach((sale) => {
@@ -386,6 +486,17 @@ export default function Reports() {
       cursor = addPdfTable(doc, autoTable, cursor, 'Receita mensal', [['Mês', 'Receita']], monthlyRevenue.map((item) => [item.month, formatter(item.revenue)]))
     }
 
+    if (reportSelected(selectedReports, 'hourly')) {
+      cursor = addPdfTable(doc, autoTable, cursor, 'Hora a Hora', [['Hora', 'Gross', 'Upgrade', 'Portabilidade', 'Fibra', 'Receita']], hourlyPartialRows.map((row) => [
+        row.label,
+        numberFormatter(row.gross),
+        numberFormatter(row.upgrade),
+        numberFormatter(row.portability),
+        numberFormatter(row.fiber),
+        formatter(row.revenue),
+      ]))
+    }
+
     if (reportSelected(selectedReports, 'goals')) {
       cursor = addPdfTable(doc, autoTable, cursor, 'Meta x Realizado', [['Serviço', 'Realizado', 'Meta', 'Atingimento']], metasProgress.map((meta) => [
         meta.label,
@@ -440,6 +551,13 @@ export default function Reports() {
       const monthHeaders = monthlyRevenue.length ? monthlyRevenue.map((item) => item.month) : ['Sem dados']
       const monthValues = monthlyRevenue.length ? monthlyRevenue.map((item) => item.revenue) : [0]
       await appendSheet('Receita mensal', [monthHeaders, monthValues])
+    }
+
+    if (reportSelected(selectedReports, 'hourly')) {
+      await appendSheet('Hora a Hora', [
+        ['Hora', 'Gross', 'Upgrade', 'Portabilidade', 'Fibra', 'Receita'],
+        ...hourlyPartialRows.map((row) => [row.label, row.gross, row.upgrade, row.portability, row.fiber, row.revenue]),
+      ])
     }
 
     if (reportSelected(selectedReports, 'goals')) {
@@ -567,6 +685,41 @@ export default function Reports() {
               <ChartCard title="Vendas Fechadas" value={summary.closed} percent={summary.closed ? Math.min(100, (summary.closed / Math.max(1, filteredSales.length)) * 100) : 0} label="Fechadas ou esteira sim" />
               <ChartCard title="Comissão Total" value={formatter(totalCommission)} percent={Math.min(100, totalCommission / Math.max(1, summary.revenue))} label="Comissões calculadas por serviço" />
               <ChartCard title="Meta definida" value={`${filteredMetas.length}`} percent={filteredMetas.length ? 100 : 0} label="Metas no filtro selecionado" />
+            </div>
+          )}
+
+          {reportSelected(selectedReports, 'hourly') && (
+            <div className="bg-gray-800 rounded overflow-hidden mb-4">
+              <div className="p-4 border-b border-gray-700">
+                <h2 className="text-xl">Hora a Hora</h2>
+                <div className="text-sm text-gray-400">{selectedLabel}</div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] border-collapse">
+                  <thead className="bg-gray-900 text-left text-sm text-gray-300">
+                    <tr>
+                      <th className="p-3">Hora</th>
+                      <th className="p-3">Gross</th>
+                      <th className="p-3">Upgrade</th>
+                      <th className="p-3">Portabilidade</th>
+                      <th className="p-3">Fibra</th>
+                      <th className="p-3">Receita</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hourlyPartialRows.map((row) => (
+                      <tr key={row.hour} className="border-t border-gray-700">
+                        <td className="p-3 font-semibold">{row.label}</td>
+                        <td className="p-3">{numberFormatter(row.gross)}</td>
+                        <td className="p-3">{numberFormatter(row.upgrade)}</td>
+                        <td className="p-3">{numberFormatter(row.portability)}</td>
+                        <td className="p-3">{numberFormatter(row.fiber)}</td>
+                        <td className="p-3">{formatter(row.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

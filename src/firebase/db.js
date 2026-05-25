@@ -758,6 +758,20 @@ function getFiberUfFromDoc(data = {}) {
   return data.uf || data.UF || data.state || data.estado || ''
 }
 
+function getFiberViabilityCodeFromDoc(data = {}) {
+  if (data.viabilityCode || data.viabilidade || data.VIABILIDADE) {
+    return data.viabilityCode || data.viabilidade || data.VIABILIDADE || ''
+  }
+  const value = String(data.viability || '').trim()
+  return /^\d+$/.test(value) ? value : ''
+}
+
+function getFiberViabilityReasonFromDoc(data = {}) {
+  const value = String(data.viability || '').trim()
+  if (value && !/^\d+$/.test(value)) return value
+  return data.motivo || data.MOTIVO || data.status || data.situacao || ''
+}
+
 function serializeFiberRow(docItem) {
   const data = docItem.data ? docItem.data() : docItem
   return {
@@ -768,13 +782,19 @@ function serializeFiberRow(docItem) {
     cep: data.cep || data.CEP || '',
     street: data.street || data.rua || data.logradouro || data.LOGRADOURO || '',
     number: data.number || data.numero || data.numLogradouro || data.NUM_LOGRADOURO || '',
-    complement: data.complement || data.complemento || data.COMPLEMENTO || '',
+    complement: [
+      data.complement || data.complemento || data.COMPLEMENTO,
+      data.complement2 || data.COMPLEMENTO2,
+      data.complement3 || data.COMPLEMENTO3,
+      data.complement4 || data.COMPLEMENTO4,
+      data.complement5 || data.COMPLEMENTO5,
+    ].filter(Boolean).join(' '),
     neighborhood: data.neighborhood || data.bairro || data.BAIRRO || '',
     households: Number(data.households ?? data.QTD_HH ?? 0) || 0,
     latitude: data.latitude || data.LATITUDE || '',
     longitude: data.longitude || data.LONGITUDE || '',
-    viabilityCode: data.viabilityCode || data.viabilidade || data.VIABILIDADE || '',
-    viability: data.viability || data.motivo || data.MOTIVO || '',
+    viabilityCode: getFiberViabilityCodeFromDoc(data),
+    viability: getFiberViabilityReasonFromDoc(data),
     lotType: data.lotType || data.TIPO_LOTE || '',
     infraProvider: data.infraProvider || data.INFRACO_PRINCIPAL || '',
     olt: data.olt || data.OLT || '',
@@ -800,6 +820,44 @@ function buildFiberCities(rows = []) {
   return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
 }
 
+function fiberRowKey(row = {}) {
+  return [
+    row.uf,
+    row.city,
+    row.cep,
+    row.street,
+    row.number,
+    row.complement,
+    row.neighborhood,
+  ].map((value) => normalizeText(value)).join('|')
+}
+
+function mergeFiberRows(...rowGroups) {
+  const byKey = new Map()
+  rowGroups.flat().forEach((row) => {
+    const key = fiberRowKey(row)
+    if (!key.replace(/\|/g, '')) return
+    if (!byKey.has(key)) byKey.set(key, row)
+  })
+  return [...byKey.values()]
+}
+
+function mergeFiberCities(...cityGroups) {
+  const byKey = new Map()
+  cityGroups.flat().forEach((item) => {
+    const city = item.city || item.cidade || item.municipio || ''
+    const uf = item.uf || item.UF || item.state || item.estado || ''
+    const key = `${normalizeText(city)}|${normalizeText(uf)}`
+    if (!city || byKey.has(key)) return
+    byKey.set(key, {
+      city,
+      uf,
+      label: item.label || (uf ? `${city} / ${uf}` : city),
+    })
+  })
+  return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+}
+
 function fiberRowMatches(row, filters = {}) {
   if (filters.city && !normalizeText(row.city).includes(normalizeText(filters.city))) return false
   if (filters.cep && !onlyDigits(row.cep).startsWith(onlyDigits(filters.cep))) return false
@@ -812,43 +870,15 @@ function fiberRowMatches(row, filters = {}) {
 async function getFiberRowsFromFirestore() {
   const rows = []
   const diagnostics = []
-  try {
-    const primarySnap = await getDocs(collection(db, primaryFiberCoverageCollection))
-    diagnostics.push({
-      collection: primaryFiberCoverageCollection,
-      status: primarySnap.empty ? 'empty' : 'ok',
-      rows: primarySnap.size,
-      primary: true,
-    })
-    if (!primarySnap.empty) {
-      const primaryRows = primarySnap.docs.map(serializeFiberRow)
-      writeJsonCache(FIBER_ROWS_CACHE_KEY, {
-        rows: primaryRows,
-        diagnostics: [
-          ...diagnostics,
-          { collection: 'legacy', status: 'skipped-primary-active', rows: 0 },
-        ],
-        updatedAt: Date.now(),
-        source: primaryFiberCoverageCollection,
-      })
-      return primaryRows
-    }
-  } catch (error) {
-    diagnostics.push({
-      collection: primaryFiberCoverageCollection,
-      status: error?.code || 'error',
-      rows: 0,
-      primary: true,
-      message: error.message,
-    })
-    console.warn(`Não foi possível ler ${primaryFiberCoverageCollection} no Firestore.`, error)
-  }
-
   for (const collectionName of fiberCoverageCollections) {
-    if (collectionName === primaryFiberCoverageCollection) continue
     try {
       const snap = await getDocs(collection(db, collectionName))
-      diagnostics.push({ collection: collectionName, status: snap.empty ? 'empty' : 'ok', rows: snap.size })
+      diagnostics.push({
+        collection: collectionName,
+        status: snap.empty ? 'empty' : 'ok',
+        rows: snap.size,
+        primary: collectionName === primaryFiberCoverageCollection,
+      })
       if (!snap.empty) {
         rows.push(...snap.docs.map(serializeFiberRow))
       }
@@ -857,8 +887,9 @@ async function getFiberRowsFromFirestore() {
       console.warn(`Não foi possível ler ${collectionName} no Firestore.`, error)
     }
   }
-  if (rows.length) {
-    writeJsonCache(FIBER_ROWS_CACHE_KEY, { rows, diagnostics, updatedAt: Date.now() })
+  const mergedRows = mergeFiberRows(rows)
+  if (mergedRows.length) {
+    writeJsonCache(FIBER_ROWS_CACHE_KEY, { rows: mergedRows, diagnostics, updatedAt: Date.now() })
   } else {
     const cached = readJsonCache(FIBER_ROWS_CACHE_KEY)
     if (cached?.rows?.length) {
@@ -866,20 +897,17 @@ async function getFiberRowsFromFirestore() {
       return cached.rows
     }
   }
-  return rows
+  return mergedRows
 }
 
 export async function getFiberViabilityCities() {
   const cached = readJsonCache(FIBER_CITIES_CACHE_KEY)
-  if (cached?.cities?.length && Date.now() - Number(cached.updatedAt || 0) < FIBER_CACHE_TTL_MS) {
-    return cached.cities
-  }
 
+  let apiCities = []
   try {
     const data = await apiRequest('/api/fiber-viability/cities')
     if (Array.isArray(data) && data.length) {
-      writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: data, updatedAt: Date.now(), source: 'api' })
-      return data
+      apiCities = data
     }
   } catch (apiError) {
     console.warn('Não foi possível carregar cidades de fibra pela API. Tentando Firestore.', apiError)
@@ -887,9 +915,14 @@ export async function getFiberViabilityCities() {
 
   const coverageRows = await getFiberRowsFromFirestore()
   const coverageCities = buildFiberCities(coverageRows)
-  if (coverageCities.length) {
-    writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: coverageCities, updatedAt: Date.now(), source: 'firestore' })
-    return coverageCities
+  const mergedCoverageCities = mergeFiberCities(apiCities, coverageCities)
+  if (mergedCoverageCities.length) {
+    writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: mergedCoverageCities, updatedAt: Date.now(), source: apiCities.length ? 'api+firestore' : 'firestore' })
+    return mergedCoverageCities
+  }
+
+  if (cached?.cities?.length && Date.now() - Number(cached.updatedAt || 0) < FIBER_CACHE_TTL_MS) {
+    return cached.cities
   }
 
   const stores = await getStores()
@@ -908,13 +941,25 @@ export async function searchFiberViability(filters = {}) {
   })
   params.set('limit', '150')
 
+  let apiResult = null
   try {
-    return await apiRequest(`/api/fiber-viability?${params.toString()}`)
+    apiResult = await apiRequest(`/api/fiber-viability?${params.toString()}`)
   } catch (apiError) {
     console.warn('Não foi possível consultar viabilidade pela API. Tentando Firestore.', apiError)
   }
 
   const rows = (await getFiberRowsFromFirestore()).filter((row) => fiberRowMatches(row, filters))
+  if (apiResult?.rows?.length) {
+    const mergedRows = mergeFiberRows(apiResult.rows, rows)
+    return {
+      rows: mergedRows.slice(0, 150),
+      totalMatches: Math.max(Number(apiResult.totalMatches || 0), apiResult.rows.length) + rows.length,
+      scannedRows: Number(apiResult.scannedRows || 0) + rows.length,
+      limit: 150,
+      elapsedMs: Number(apiResult.elapsedMs || 0),
+    }
+  }
+
   return {
     rows: rows.slice(0, 150),
     totalMatches: rows.length,
