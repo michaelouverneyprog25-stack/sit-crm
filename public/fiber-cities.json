@@ -1,0 +1,157 @@
+{
+  "generatedAt": "2026-05-25T06:01:54.096Z",
+  "source": "data/fiber-coverage.csv",
+  "count": 30,
+  "cities": [
+    {
+      "city": "ANGRA DOS REIS",
+      "uf": "RJ",
+      "label": "ANGRA DOS REIS / RJ"
+    },
+    {
+      "city": "ARARUAMA",
+      "uf": "RJ",
+      "label": "ARARUAMA / RJ"
+    },
+    {
+      "city": "ARMACAO DOS BUZIOS",
+      "uf": "RJ",
+      "label": "ARMACAO DOS BUZIOS / RJ"
+    },
+    {
+      "city": "BARRA DO PIRAI",
+      "uf": "RJ",
+      "label": "BARRA DO PIRAI / RJ"
+    },
+    {
+      "city": "BARRA MANSA",
+      "uf": "RJ",
+      "label": "BARRA MANSA / RJ"
+    },
+    {
+      "city": "CABO FRIO",
+      "uf": "RJ",
+      "label": "CABO FRIO / RJ"
+    },
+    {
+      "city": "CAMPOS DOS GOYTACAZES",
+      "uf": "RJ",
+      "label": "CAMPOS DOS GOYTACAZES / RJ"
+    },
+    {
+      "city": "CASIMIRO DE ABREU",
+      "uf": "RJ",
+      "label": "CASIMIRO DE ABREU / RJ"
+    },
+    {
+      "city": "DUQUE DE CAXIAS",
+      "uf": "RJ",
+      "label": "DUQUE DE CAXIAS / RJ"
+    },
+    {
+      "city": "ITAGUAI",
+      "uf": "RJ",
+      "label": "ITAGUAI / RJ"
+    },
+    {
+      "city": "MANGARATIBA",
+      "uf": "RJ",
+      "label": "MANGARATIBA / RJ"
+    },
+    {
+      "city": "MARICA",
+      "uf": "RJ",
+      "label": "MARICA / RJ"
+    },
+    {
+      "city": "MESQUITA",
+      "uf": "RJ",
+      "label": "MESQUITA / RJ"
+    },
+    {
+      "city": "NILOPOLIS",
+      "uf": "RJ",
+      "label": "NILOPOLIS / RJ"
+    },
+    {
+      "city": "NITEROI",
+      "uf": "RJ",
+      "label": "NITEROI / RJ"
+    },
+    {
+      "city": "NOVA FRIBURGO",
+      "uf": "RJ",
+      "label": "NOVA FRIBURGO / RJ"
+    },
+    {
+      "city": "NOVA IGUACU",
+      "uf": "RJ",
+      "label": "NOVA IGUACU / RJ"
+    },
+    {
+      "city": "PARACAMBI",
+      "uf": "RJ",
+      "label": "PARACAMBI / RJ"
+    },
+    {
+      "city": "PETROPOLIS",
+      "uf": "RJ",
+      "label": "PETROPOLIS / RJ"
+    },
+    {
+      "city": "PINHEIRAL",
+      "uf": "RJ",
+      "label": "PINHEIRAL / RJ"
+    },
+    {
+      "city": "QUEIMADOS",
+      "uf": "RJ",
+      "label": "QUEIMADOS / RJ"
+    },
+    {
+      "city": "RESENDE",
+      "uf": "RJ",
+      "label": "RESENDE / RJ"
+    },
+    {
+      "city": "RIO DE JANEIRO",
+      "uf": "RJ",
+      "label": "RIO DE JANEIRO / RJ"
+    },
+    {
+      "city": "SAO GONCALO",
+      "uf": "RJ",
+      "label": "SAO GONCALO / RJ"
+    },
+    {
+      "city": "SAO JOAO DE MERITI",
+      "uf": "RJ",
+      "label": "SAO JOAO DE MERITI / RJ"
+    },
+    {
+      "city": "SAO PEDRO DA ALDEIA",
+      "uf": "RJ",
+      "label": "SAO PEDRO DA ALDEIA / RJ"
+    },
+    {
+      "city": "SAQUAREMA",
+      "uf": "RJ",
+      "label": "SAQUAREMA / RJ"
+    },
+    {
+      "city": "TERESOPOLIS",
+      "uf": "RJ",
+      "label": "TERESOPOLIS / RJ"
+    },
+    {
+      "city": "VALENCA",
+      "uf": "RJ",
+      "label": "VALENCA / RJ"
+    },
+    {
+      "city": "VOLTA REDONDA",
+      "uf": "RJ",
+      "label": "VOLTA REDONDA / RJ"
+    }
+  ]
+}

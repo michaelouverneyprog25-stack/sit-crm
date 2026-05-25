@@ -858,6 +858,19 @@ function mergeFiberCities(...cityGroups) {
   return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
 }
 
+async function getStaticFiberCities() {
+  if (typeof fetch === 'undefined') return []
+  try {
+    const response = await fetch('/fiber-cities.json', { cache: 'no-store' })
+    if (!response.ok) return []
+    const data = await response.json()
+    return mergeFiberCities(Array.isArray(data?.cities) ? data.cities : [])
+  } catch (error) {
+    console.warn('Não foi possível carregar cidades estáticas de fibra.', error)
+    return []
+  }
+}
+
 function fiberRowMatches(row, filters = {}) {
   if (filters.city && !normalizeText(row.city).includes(normalizeText(filters.city))) return false
   if (filters.cep && !onlyDigits(row.cep).startsWith(onlyDigits(filters.cep))) return false
@@ -910,15 +923,26 @@ export async function getFiberViabilityCities() {
       apiCities = data
     }
   } catch (apiError) {
-    console.warn('Não foi possível carregar cidades de fibra pela API. Tentando Firestore.', apiError)
+    console.warn('Não foi possível carregar cidades de fibra pela API. Tentando fallback estático.', apiError)
+  }
+
+  if (apiCities.length) {
+    const normalizedApiCities = mergeFiberCities(apiCities)
+    writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: normalizedApiCities, updatedAt: Date.now(), source: 'api' })
+    return normalizedApiCities
+  }
+
+  const staticCities = await getStaticFiberCities()
+  if (staticCities.length) {
+    writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: staticCities, updatedAt: Date.now(), source: 'static' })
+    return staticCities
   }
 
   const coverageRows = await getFiberRowsFromFirestore()
   const coverageCities = buildFiberCities(coverageRows)
-  const mergedCoverageCities = mergeFiberCities(apiCities, coverageCities)
-  if (mergedCoverageCities.length) {
-    writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: mergedCoverageCities, updatedAt: Date.now(), source: apiCities.length ? 'api+firestore' : 'firestore' })
-    return mergedCoverageCities
+  if (coverageCities.length) {
+    writeJsonCache(FIBER_CITIES_CACHE_KEY, { cities: coverageCities, updatedAt: Date.now(), source: 'firestore' })
+    return coverageCities
   }
 
   if (cached?.cities?.length && Date.now() - Number(cached.updatedAt || 0) < FIBER_CACHE_TTL_MS) {
@@ -971,11 +995,18 @@ export async function searchFiberViability(filters = {}) {
 
 export async function diagnoseFiberViability() {
   let localBase = null
+  let staticCitiesCount = 0
   try {
     const apiDiagnostics = await apiRequest('/api/fiber-viability/diagnostics')
     localBase = apiDiagnostics?.localBase || null
   } catch (apiError) {
     console.warn('Diagnóstico local de fibra indisponível. Tentando Firestore/cache.', apiError)
+  }
+
+  try {
+    staticCitiesCount = (await getStaticFiberCities()).length
+  } catch {
+    staticCitiesCount = 0
   }
 
   const diagnostics = []
@@ -1001,8 +1032,9 @@ export async function diagnoseFiberViability() {
     localBase,
     collections: diagnostics,
     cachedRows: cachedRows.length,
+    staticCities: staticCitiesCount,
     primaryCollectionActive: diagnostics.some((item) => item.collection === primaryFiberCoverageCollection && item.rows > 0),
-    hasData: localBase?.status === 'active' || diagnostics.some((item) => item.rows > 0) || cachedRows.length > 0,
+    hasData: localBase?.status === 'active' || diagnostics.some((item) => item.rows > 0) || cachedRows.length > 0 || staticCitiesCount > 0,
     checkedAt: new Date().toISOString(),
   }
 }
