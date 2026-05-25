@@ -108,6 +108,7 @@ let firestoreQuotaPausedUntil = 0
 let fiberCitiesCache = { mtimeMs: 0, cities: [] }
 const ECONOMIC_GROUP_NAME = 'INTERCELL'
 const GOAL_TYPES = [
+  'Gross',
   'Pós',
   'Controle',
   'Upgrade',
@@ -554,6 +555,8 @@ function buildCachedUserProfile(profile = {}) {
     storeName: profile.storeName || profile.store || profile.loja || '',
     storeCity: profile.storeCity || profile.city || profile.cidade || '',
     storeState: profile.storeState || profile.state || profile.estado || '',
+    registration: profile.registration || profile.matricula || profile.employeeId || '',
+    matricula: profile.registration || profile.matricula || profile.employeeId || '',
     photoUrl: profile.photoUrl || '',
     disabled: profile.disabled === true,
     createdAt: profile.createdAt || '',
@@ -1660,6 +1663,8 @@ function getSaleGoalValue(sale, type) {
   switch (type) {
     case 'Receita Total':
       return amount
+    case 'Gross':
+      return getSaleGoalValue(sale, 'Pós') + getSaleGoalValue(sale, 'Controle')
     case 'Aparelhos':
       return hasDeviceSale(sale) ? Number(sale.deviceValue || 0) : 0
     case 'Controle':
@@ -2631,6 +2636,8 @@ async function buildSalePayload(data, includeTimestamp = true, options = {}) {
     storeName: data.storeName || user?.storeName || user?.store || user?.loja || '',
     storeCity: data.storeCity || user?.storeCity || user?.city || user?.cidade || '',
     storeState: data.storeState || user?.storeState || user?.state || user?.estado || '',
+    sellerRegistration: data.sellerRegistration || data.sellerMatricula || user?.registration || user?.matricula || user?.employeeId || '',
+    sellerMatricula: data.sellerRegistration || data.sellerMatricula || user?.registration || user?.matricula || user?.employeeId || '',
     dependentCount: getDependentCount(data),
     commissionRate: Number(data.commissionRate || 0),
     commission: Number(data.commission || 0),
@@ -4198,6 +4205,8 @@ function buildUserProfile(authUser, profile = {}) {
     storeName: profile.storeName || profile.store || profile.loja || '',
     storeCity: profile.storeCity || profile.city || profile.cidade || '',
     storeState: profile.storeState || profile.state || profile.estado || '',
+    registration: profile.registration || profile.matricula || profile.employeeId || '',
+    matricula: profile.registration || profile.matricula || profile.employeeId || '',
     photoUrl: profile.photoUrl || authUser.photoURL || '',
     disabled: authUser.disabled === true || profile.disabled === true,
     createdAt: profile.createdAt || authUser.metadata?.creationTime || '',
@@ -4301,6 +4310,7 @@ app.post('/api/users', async (req, res) => {
   try {
     const { name, password, role } = req.body
     const photoUrl = String(req.body.photoUrl || '').trim()
+    const registration = String(req.body.registration || req.body.matricula || req.body.employeeId || '').trim()
     const actorIsManager = normalizeRole(req.actorRole || req.body.actorRole) === 'Gerente'
     const storeName = actorIsManager ? getProfileStoreName(req.currentUser) : String(req.body.storeName || '')
     const storeCity = actorIsManager ? (req.currentUser?.storeCity || '') : String(req.body.storeCity || '')
@@ -4362,6 +4372,8 @@ app.post('/api/users', async (req, res) => {
       storeName,
       storeCity,
       storeState,
+      registration,
+      matricula: registration,
       photoUrl,
       disabled: active ? false : true,
       updatedAt: new Date().toISOString(),
@@ -4383,6 +4395,8 @@ app.post('/api/users', async (req, res) => {
           storeName,
           storeCity,
           storeState,
+          registration,
+          matricula: registration,
           photoUrl,
           disabled: active ? false : true,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -4419,6 +4433,7 @@ app.put('/api/users/:uid', async (req, res) => {
     const { uid } = req.params
     const { name, role, active } = req.body
     const photoUrl = String(req.body.photoUrl || '').trim()
+    const registration = String(req.body.registration || req.body.matricula || req.body.employeeId || '').trim()
     const actorIsManager = normalizeRole(req.actorRole || req.body.actorRole) === 'Gerente'
     const storeName = actorIsManager ? getProfileStoreName(req.currentUser) : String(req.body.storeName || '')
     const storeCity = actorIsManager ? (req.currentUser?.storeCity || '') : String(req.body.storeCity || '')
@@ -4462,6 +4477,8 @@ app.put('/api/users/:uid', async (req, res) => {
       storeName,
       storeCity,
       storeState,
+      registration,
+      matricula: registration,
       photoUrl,
       ...(active !== undefined ? { disabled: active ? false : true } : {}),
       updatedAt: new Date().toISOString(),

@@ -4,7 +4,6 @@ import { apiRequest } from '../firebase/db'
 const SALE_TYPES = ['Ativação', 'Migração', 'Portabilidade', 'Upgrade', 'Aparelhos', 'Acessórios', 'Fibra']
 const DEVICE_SALE_MODES = ['Ativação', 'Migração', 'Portabilidade']
 const PLAN_OPTIONS = [
-  'DEPENDENTE',
   'CONTROLE 2.0',
   'CONTROLE PLUS 2.0',
   'CONTROLE PREMIUM 2.0',
@@ -21,6 +20,7 @@ const PLAN_OPTIONS = [
   'BLACK FAMILIA PLUS',
   'BLACK FAMILIA PREMIUM',
   'BLACK FAMILIA VIP',
+  'Dependente',
   'Fibra 500MB',
   'Fibra 600MB',
   'Fibra 700MB',

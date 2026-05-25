@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { getUsers, getVendas } from '../firebase/db'
+import { getStores, getUsers, getVendas } from '../firebase/db'
+import { useAuth } from '../contexts/AuthContext'
 import { appendJsonSheet, createWorkbook, writeWorkbook } from '../utils/excelExport'
 
 function parseDate(value) {
@@ -73,9 +74,9 @@ function getSellerName(sale, users) {
   return user?.name || sale.userName || sale.sellerName || 'Sem vendedor'
 }
 
-function getSellerEmail(sale, users) {
+function getSellerRegistration(sale, users) {
   const user = getUserForSale(sale, users)
-  return user?.email || sale.seller || sale.userEmail || ''
+  return sale.sellerRegistration || sale.sellerMatricula || user?.registration || user?.matricula || ''
 }
 
 function getStoreField(sale, users, fieldName) {
@@ -110,12 +111,12 @@ function getFields(users) {
     { label: 'Cidade da loja', value: (sale) => getStoreField(sale, users, 'city') },
     { label: 'UF da loja', value: (sale) => getStoreField(sale, users, 'state') },
     { label: 'Vendedor', value: (sale) => getSellerName(sale, users) },
+    { label: 'Matrícula do Vendedor', value: (sale) => getSellerRegistration(sale, users) },
     { label: 'Nome do usuario logado', value: (sale) => sale.userName || getSellerName(sale, users) },
-    { label: 'Email do usuario logado', value: (sale) => sale.userEmail || sale.seller || getSellerEmail(sale, users) },
     { label: 'Comissao vendedor', value: (sale) => formatCurrency(sale.commission), excelValue: (sale) => numberOrBlank(sale.commission) },
     { label: 'Comissao upgrade', value: (sale) => formatCurrency(sale.commissionDetails?.upgrade?.amount), excelValue: (sale) => numberOrBlank(sale.commissionDetails?.upgrade?.amount) },
     { label: 'Comissao seguro', value: (sale) => formatCurrency(sale.commissionDetails?.insurance?.amount), excelValue: (sale) => numberOrBlank(sale.commissionDetails?.insurance?.amount) },
-    { label: 'Comissao loja', value: (sale) => formatCurrency(sale.storeCommission), excelValue: (sale) => numberOrBlank(sale.storeCommission) },
+    { label: 'Comissao Gerente', value: (sale) => formatCurrency(sale.storeCommission), excelValue: (sale) => numberOrBlank(sale.storeCommission) },
     { label: 'Percentual comissao', value: (sale) => sale.commissionRate ? `${Number(sale.commissionRate * 100).toFixed(2)}%` : '', excelValue: (sale) => numberOrBlank(sale.commissionRate) },
     { label: 'Criado em', value: (sale) => formatDateTime(sale.createdAt) },
     { label: 'Atualizado em', value: (sale) => formatDateTime(sale.updatedAt) },
@@ -123,9 +124,11 @@ function getFields(users) {
 }
 
 export default function AllSalesReport() {
+  const { currentUser } = useAuth()
   const [sales, setSales] = useState([])
   const [users, setUsers] = useState([])
-  const [filters, setFilters] = useState({ search: '', fromDate: '', toDate: '' })
+  const [stores, setStores] = useState([])
+  const [filters, setFilters] = useState({ search: '', fromDate: '', toDate: '', storeName: '' })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -134,15 +137,17 @@ export default function AllSalesReport() {
     setError('')
 
     try {
-      const [salesData, usersData] = await Promise.all([
+      const [salesData, usersData, storesData] = await Promise.all([
         getVendas({
           fromDate: nextFilters.fromDate || undefined,
           toDate: nextFilters.toDate || undefined,
         }),
         getUsers(),
+        getStores(),
       ])
       setSales(Array.isArray(salesData) ? salesData : [])
       setUsers(Array.isArray(usersData) ? usersData : [])
+      setStores(Array.isArray(storesData) ? storesData : [])
     } catch (err) {
       console.error('Erro ao carregar relatorio geral de vendas:', err)
       setError('Nao foi possivel carregar o relatorio geral de vendas.')
@@ -157,15 +162,32 @@ export default function AllSalesReport() {
   }, [])
 
   const fields = useMemo(() => getFields(users), [users])
+  const canFilterStores = ['Administrador', 'Gestor Master'].includes(currentUser?.role)
+  const storeOptions = useMemo(() => {
+    const byName = new Map()
+    const add = (name) => {
+      const key = normalize(name)
+      if (key && !byName.has(key)) byName.set(key, name)
+    }
+    stores.forEach((store) => add(store.name || store.storeName || store.loja))
+    users.forEach((user) => add(user.storeName || user.store || user.loja))
+    sales.forEach((sale) => add(getStoreField(sale, users, 'name')))
+    const options = [...byName.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    if (currentUser?.role === 'Gestor Master' && currentUser?.storeName) {
+      return options.filter((store) => normalize(store) === normalize(currentUser.storeName))
+    }
+    return options
+  }, [currentUser, sales, stores, users])
 
   const filteredSales = useMemo(() => {
     const text = normalize(filters.search)
-    if (!text) return sales
 
     return sales.filter((sale) => {
+      if (filters.storeName && normalize(getStoreField(sale, users, 'name')) !== normalize(filters.storeName)) return false
+      if (!text) return true
       return fields.some((field) => normalize(field.value(sale)).includes(text))
     })
-  }, [fields, filters.search, sales])
+  }, [fields, filters.search, filters.storeName, sales, users])
 
   const totals = useMemo(() => {
     return filteredSales.reduce((acc, sale) => ({
@@ -273,13 +295,13 @@ export default function AllSalesReport() {
           <div className="text-2xl font-semibold">{formatCurrency(totals.commission)}</div>
         </div>
         <div className="bg-gray-800 p-4 rounded">
-          <div className="text-sm text-gray-400">Comissao loja</div>
+          <div className="text-sm text-gray-400">Comissao Gerente</div>
           <div className="text-2xl font-semibold">{formatCurrency(totals.storeCommission)}</div>
         </div>
       </div>
 
       <div className="bg-gray-800 p-4 rounded mb-4">
-        <div className="grid gap-2 md:grid-cols-4">
+        <div className="grid gap-2 md:grid-cols-5">
           <input
             name="search"
             value={filters.search}
@@ -287,6 +309,12 @@ export default function AllSalesReport() {
             placeholder="Buscar por cliente, CPF, vendedor, loja..."
             className="p-2 bg-gray-700 rounded md:col-span-2"
           />
+          {canFilterStores && (
+            <select name="storeName" value={filters.storeName} onChange={changeFilter} className="p-2 bg-gray-700 rounded">
+              <option value="">Todas as lojas</option>
+              {storeOptions.map((store) => <option key={store} value={store}>{store}</option>)}
+            </select>
+          )}
           <input name="fromDate" type="date" value={filters.fromDate} onChange={changeFilter} className="p-2 bg-gray-700 rounded" />
           <input name="toDate" type="date" value={filters.toDate} onChange={changeFilter} className="p-2 bg-gray-700 rounded" />
         </div>
@@ -295,7 +323,7 @@ export default function AllSalesReport() {
           <button
             type="button"
             onClick={() => {
-              const resetFilters = { search: '', fromDate: '', toDate: '' }
+              const resetFilters = { search: '', fromDate: '', toDate: '', storeName: '' }
               setFilters(resetFilters)
               loadSales(resetFilters)
             }}

@@ -11,6 +11,16 @@ function getUserNameByEmail(users, email) {
   return user?.name || 'Sem vendedor'
 }
 
+function getUserRegistrationForSale(users, sale) {
+  const user = users.find((item) => (
+    item.uid === sale.userId
+    || item.id === sale.userId
+    || item.email === sale.seller
+    || item.email === sale.userEmail
+  ))
+  return sale.sellerRegistration || sale.sellerMatricula || user?.registration || user?.matricula || ''
+}
+
 export default function Sales() {
   const { currentUser } = useAuth()
   const [sales, setSales] = useState([])
@@ -70,6 +80,8 @@ export default function Sales() {
       userId: editingSale?.userId || currentUser?.uid || '',
       userName: editingSale?.userName || currentUser?.name || 'Usuário',
       userEmail: editingSale?.userEmail || currentUser?.email || '',
+      sellerRegistration: editingSale?.sellerRegistration || editingSale?.sellerMatricula || currentUser?.registration || currentUser?.matricula || '',
+      sellerMatricula: editingSale?.sellerRegistration || editingSale?.sellerMatricula || currentUser?.registration || currentUser?.matricula || '',
     }
 
     try {
@@ -119,6 +131,7 @@ export default function Sales() {
   const displaySales = sales.map((sale) => ({
     ...sale,
     sellerName: sale.userName || getUserNameByEmail(users, sale.seller || sale.userEmail),
+    sellerRegistration: getUserRegistrationForSale(users, sale),
   }))
 
   return (

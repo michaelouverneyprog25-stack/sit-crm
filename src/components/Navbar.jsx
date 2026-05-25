@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Camera, LogOut, Menu, Moon, Sun, UserCircle } from 'lucide-react'
-import { useTheme } from '../contexts/ThemeContext'
+import { Camera, LogOut, Menu, UserCircle } from 'lucide-react'
 import { logout } from '../firebase/auth'
 import { useAuth } from '../contexts/AuthContext'
 import SyncStatus from './SyncStatus'
@@ -9,7 +8,6 @@ import Logo from './Logo'
 import UserAvatar from './UserAvatar'
 
 export default function Navbar({ sidebarOpen, setSidebarOpen }){
-  const {dark,setDark} = useTheme()
   const navigate = useNavigate()
   const { currentUser } = useAuth()
   const [profileOpen, setProfileOpen] = useState(false)
@@ -66,10 +64,6 @@ export default function Navbar({ sidebarOpen, setSidebarOpen }){
               </div>
             )}
           </div>
-          <button onClick={()=>setDark(!dark)} className="inline-flex items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 hover:bg-white/10">
-            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            {dark? 'Light' : 'Dark'}
-          </button>
         </div>
       </div>
     </nav>

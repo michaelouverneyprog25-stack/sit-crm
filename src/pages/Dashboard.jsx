@@ -6,17 +6,8 @@ import { MetricCard, PageHeader } from '../components/ui'
 import Logo from '../components/Logo'
 
 const SERVICES = [
-  'Pós',
-  'Controle',
-  'Upgrade',
-  'Fibra',
+  'Gross',
   'Receita Total',
-  'Aparelhos',
-  'Acessórios',
-  'PayJoy',
-  'Seguros',
-  'DACC',
-  'Portabilidade',
 ]
 const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros'])
 const RANKING_GOAL_TYPES = new Set(SERVICES)
@@ -190,6 +181,8 @@ function getSaleGoalValue(sale, type) {
   switch (type) {
     case 'Receita Total':
       return amount
+    case 'Gross':
+      return getSaleGoalValue(sale, 'Pós') + getSaleGoalValue(sale, 'Controle')
     case 'Aparelhos':
       return hasDeviceSale(sale) ? Number(sale.deviceValue || 0) : 0
     case 'Controle':
@@ -989,10 +982,9 @@ export default function Dashboard() {
 
   const sellerPeriodSummary = useMemo(() => {
     const revenueGoal = goalRows.find((goal) => goal.type === 'Receita Total') || {}
-    const posGoal = goalRows.find((goal) => goal.type === 'Pós') || {}
-    const controlGoal = goalRows.find((goal) => goal.type === 'Controle') || {}
-    const grossTarget = numberValue(posGoal.targetValue) + numberValue(controlGoal.targetValue)
-    const grossCurrent = numberValue(posGoal.currentValue) + numberValue(controlGoal.currentValue)
+    const grossGoal = goalRows.find((goal) => goal.type === 'Gross') || {}
+    const grossTarget = numberValue(grossGoal.targetValue)
+    const grossCurrent = numberValue(grossGoal.currentValue)
     const grossGap = Math.max(0, grossTarget - grossCurrent)
     return {
       revenue: {
@@ -1141,7 +1133,7 @@ export default function Dashboard() {
     <div className="mx-auto max-w-7xl space-y-5">
       <PageHeader
         eyebrow="Visão geral"
-        title="Dashboard executivo"
+        title="Dashboard Executivo"
         description="Acompanhamento em tempo real de vendas, metas, ranking, projeção e performance por loja e vendedor."
         action={(
           <div className="flex flex-wrap items-center justify-end gap-3">
@@ -1151,53 +1143,7 @@ export default function Dashboard() {
         )}
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard
-          label={revenueScopeLabel}
-          value={`R$ ${formatNumber(totalRevenue)}`}
-          helper="Base do mês selecionado"
-          tone="cyan"
-          icon={BarChart3}
-        />
-        <MetricCard
-          label="Vendas cadastradas"
-          value={totalSales}
-          helper={`${getMonthName(filters.month)} de ${filters.year}`}
-          tone="emerald"
-          icon={ShoppingBag}
-        />
-        <MetricCard
-          label="Atualização"
-          value={lastUpdated ? lastUpdated.toLocaleTimeString('pt-BR') : '-'}
-          helper="automática a cada 30s"
-          tone="violet"
-          icon={Clock3}
-        />
-      </div>
-
-      {authError && <div className="rounded border border-yellow-300/30 bg-yellow-600/20 p-3 text-sm text-yellow-100">{authError}</div>}
-      {error && <div className="rounded border border-red-300/30 bg-red-600/20 p-3 text-sm text-red-100">{error}</div>}
-      {loading && <div className="text-sm text-gray-400">Carregando dados...</div>}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {revenueCards.map((card) => (
-          <div key={card.label} className="p-5 bg-gray-800 rounded border border-white/10">
-            <div className="text-sm text-gray-400">{card.label}</div>
-            <div className="text-2xl font-semibold">R$ {formatNumber(card.value)}</div>
-          </div>
-        ))}
-      </div>
-
-      {canViewHourlyPartial && (
-        <HourlyPartialTable
-          title="Parcial hora a hora"
-          subtitle={`${hourlyPartialScopeLabel} - ${getMonthName(filters.month)} de ${filters.year}`}
-          rows={hourlyPartialRows}
-          totals={hourlyPartialTotals}
-        />
-      )}
-
-      <div className="bg-gray-800 p-5 rounded">
+      <div className="rounded-xl border border-sky-300/15 bg-gray-800/95 p-4 shadow-lg shadow-blue-950/20">
         <div className="grid gap-2 md:grid-cols-5">
           <label className="flex flex-col gap-1 text-sm text-gray-300">
             <span>Mês</span>
@@ -1253,6 +1199,52 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard
+          label={revenueScopeLabel}
+          value={`R$ ${formatNumber(totalRevenue)}`}
+          helper="Base do mês selecionado"
+          tone="cyan"
+          icon={BarChart3}
+        />
+        <MetricCard
+          label="Vendas cadastradas"
+          value={totalSales}
+          helper={`${getMonthName(filters.month)} de ${filters.year}`}
+          tone="emerald"
+          icon={ShoppingBag}
+        />
+        <MetricCard
+          label="Atualização"
+          value={lastUpdated ? lastUpdated.toLocaleTimeString('pt-BR') : '-'}
+          helper="automática a cada 30s"
+          tone="violet"
+          icon={Clock3}
+        />
+      </div>
+
+      {authError && <div className="rounded border border-yellow-300/30 bg-yellow-600/20 p-3 text-sm text-yellow-100">{authError}</div>}
+      {error && <div className="rounded border border-red-300/30 bg-red-600/20 p-3 text-sm text-red-100">{error}</div>}
+      {loading && <div className="text-sm text-gray-400">Carregando dados...</div>}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {revenueCards.map((card) => (
+          <div key={card.label} className="p-5 bg-gray-800 rounded border border-white/10">
+            <div className="text-sm text-gray-400">{card.label}</div>
+            <div className="text-2xl font-semibold">R$ {formatNumber(card.value)}</div>
+          </div>
+        ))}
+      </div>
+
+      {canViewHourlyPartial && (
+        <HourlyPartialTable
+          title="Parcial hora a hora"
+          subtitle={`${hourlyPartialScopeLabel} - ${getMonthName(filters.month)} de ${filters.year}`}
+          rows={hourlyPartialRows}
+          totals={hourlyPartialTotals}
+        />
+      )}
 
       {isSeller && (
         <section className="grid gap-4 md:grid-cols-2">

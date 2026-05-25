@@ -27,7 +27,7 @@ export default function Users(){
   const [users,setUsers] = useState(() => readArrayCache(CACHE_KEYS.users))
   const [stores, setStores] = useState(() => readArrayCache(CACHE_KEYS.stores))
   const [editing, setEditing] = useState(null)
-  const emptyForm = {name:'',email:'',password:'Password123',confirmPassword:'Password123',role:'Vendedor', active:true, storeName:'', storeCity:'', storeState:'', photoUrl:''}
+  const emptyForm = {name:'',email:'',password:'Password123',confirmPassword:'Password123',role:'Vendedor', active:true, storeName:'', storeCity:'', storeState:'', registration:'', photoUrl:''}
   const [form, setForm] = useState(emptyForm)
   const [modal, setModal] = useState({type:'', open:false, user:null})
   const [password, setPassword] = useState('')
@@ -104,7 +104,7 @@ export default function Users(){
       return
     }
     setEditing(u.id)
-    setForm({name:u.name||'', email:u.email||'', password:'', confirmPassword:'', role:u.role||'Vendedor', active: !(u.disabled === true), storeName:u.storeName||'', storeCity:u.storeCity||'', storeState:u.storeState||'', photoUrl:u.photoUrl||'' })
+    setForm({name:u.name||'', email:u.email||'', password:'', confirmPassword:'', role:u.role||'Vendedor', active: !(u.disabled === true), storeName:u.storeName||'', storeCity:u.storeCity||'', storeState:u.storeState||'', registration:u.registration||u.matricula||'', photoUrl:u.photoUrl||'' })
   }
 
   function change(e){
@@ -177,6 +177,8 @@ export default function Users(){
       storeName: form.role === 'Gestor Master' ? '' : form.storeName,
       storeCity: form.role === 'Gestor Master' ? '' : form.storeCity,
       storeState: form.role === 'Gestor Master' ? '' : form.storeState,
+      registration: form.registration.trim(),
+      matricula: form.registration.trim(),
       photoUrl: form.photoUrl.trim(),
       actorRole: currentUser?.role,
     }
@@ -200,6 +202,8 @@ export default function Users(){
           storeName: userPayload.storeName,
           storeCity: userPayload.storeCity,
           storeState: userPayload.storeState,
+          registration: userPayload.registration,
+          matricula: userPayload.registration,
           photoUrl: userPayload.photoUrl,
           disabled: !form.active,
         }
@@ -219,6 +223,8 @@ export default function Users(){
           storeName: userPayload.storeName,
           storeCity: userPayload.storeCity,
           storeState: userPayload.storeState,
+          registration: userPayload.registration,
+          matricula: userPayload.registration,
           photoUrl: userPayload.photoUrl,
           disabled: !form.active,
         }
@@ -323,7 +329,7 @@ export default function Users(){
     if (currentUser?.role === 'Gerente' && isProtectedFromManager(user)) return false
     const term = search.trim().toLowerCase()
     if (!term) return true
-    return [user.name, user.email, user.role, user.storeName, user.storeCity, user.storeState]
+    return [user.name, user.email, user.role, user.storeName, user.storeCity, user.storeState, user.registration, user.matricula]
       .some((value) => String(value || '').toLowerCase().includes(term))
   })
 
@@ -352,6 +358,7 @@ export default function Users(){
           {errors.name && <div className="text-sm text-red-500 mb-2">{errors.name}</div>}
           <input name="email" placeholder="Email" value={form.email} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded" />
           {errors.email && <div className="text-sm text-red-500 mb-2">{errors.email}</div>}
+          <input name="registration" placeholder="Matrícula" value={form.registration} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded" />
           <input name="photoUrl" placeholder="URL da foto/avatar" value={form.photoUrl} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded" />
           {!editing && <input name="password" placeholder="Senha" type="password" value={form.password} onChange={change} className="w-full p-2 mb-2 bg-gray-700 rounded" />} 
           {!editing && errors.password && <div className="text-sm text-red-500 mb-2">{errors.password}</div>}
@@ -418,6 +425,7 @@ export default function Users(){
                     <div className="font-semibold">{u.name || 'Sem nome'}</div>
                     <div className="text-sm text-gray-400">{u.email}</div>
                     <div className="text-sm text-gray-400">{u.role || 'Vendedor'} {'•'} {u.disabled ? 'Desativado' : 'Ativo'}</div>
+                    <div className="text-sm text-gray-400">Matrícula: {u.registration || u.matricula || '-'}</div>
                     {(u.storeName || u.storeCity || u.storeState) && (
                       <div className="text-sm text-gray-400">Loja: {u.storeName || '-'} {u.storeCity ? `• ${u.storeCity}` : ''} {u.storeState ? `/${u.storeState}` : ''}</div>
                     )}

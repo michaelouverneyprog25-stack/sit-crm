@@ -15,18 +15,17 @@ const REPORT_OPTIONS = [
 ]
 
 const DEFAULT_REPORTS = REPORT_OPTIONS.map((item) => item.key)
+const SALE_FILTER_OPTIONS = [
+  { key: 'fiber', label: 'Fibra' },
+  { key: 'portability', label: 'Portabilidade' },
+  { key: 'devices', label: 'Aparelhos' },
+  { key: 'storeDevice', label: 'Loja' },
+  { key: 'timDevice', label: 'TIM' },
+  { key: 'accessories', label: 'Acessórios' },
+]
 const SERVICES = [
-  'Pós',
-  'Controle',
-  'Upgrade',
-  'Fibra',
+  'Gross',
   'Receita Total',
-  'Aparelhos',
-  'Acessórios',
-  'PayJoy',
-  'Seguros',
-  'DACC',
-  'Portabilidade',
 ]
 const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros'])
 const ECONOMIC_GROUP_NAME = 'INTERCELL'
@@ -118,9 +117,29 @@ function getDependentCount(sale) {
 function hasPortability(sale) {
   return sale.saleType === 'Portabilidade'
     || normalize(sale.saleType).includes('portabilidade')
+    || (sale.saleType === 'Aparelhos' && normalize(sale.deviceSaleMode).includes('portabilidade'))
     || normalize(sale.portability).includes('sim')
     || normalize(sale.portabilidade).includes('sim')
     || Boolean(String(sale.provisionalNumber || '').trim())
+}
+
+function hasDeviceSale(sale) {
+  return sale.saleType === 'Aparelhos'
+    || (sale.saleType === 'Upgrade' && normalize(sale.addDeviceToUpgrade) === 'sim')
+    || (sale.saleType === 'Upgrade' && Number(sale.deviceValue || 0) > 0)
+}
+
+function saleMatchesTypeFilters(sale, selectedFilters = []) {
+  if (!selectedFilters.length) return true
+  return selectedFilters.some((filter) => {
+    if (filter === 'fiber') return getSaleGoalValue(sale, 'Fibra') > 0
+    if (filter === 'portability') return hasPortability(sale)
+    if (filter === 'devices') return hasDeviceSale(sale)
+    if (filter === 'storeDevice') return hasDeviceSale(sale) && normalize(sale.deviceOrigin || 'Loja') === 'loja'
+    if (filter === 'timDevice') return hasDeviceSale(sale) && normalize(sale.deviceOrigin) === 'tim'
+    if (filter === 'accessories') return normalize(sale.saleType).includes('acessorio')
+    return true
+  })
 }
 
 function getSaleGoalValue(sale, type) {
@@ -128,6 +147,8 @@ function getSaleGoalValue(sale, type) {
   switch (type) {
     case 'Receita Total':
       return getSaleRevenueValue(sale)
+    case 'Gross':
+      return getSaleGoalValue(sale, 'Pós') + getSaleGoalValue(sale, 'Controle')
     case 'Controle':
       if (isUpgradeSale) return 0
       return planStartsWith(sale, 'CONTROLE') ? 1 : 0
@@ -199,6 +220,11 @@ function getSellerName(sale, users) {
   return user?.name || sale.userName || 'Sem vendedor'
 }
 
+function getSellerRegistration(sale, users) {
+  const user = getUserForSale(sale, users)
+  return sale.sellerRegistration || sale.sellerMatricula || user?.registration || user?.matricula || ''
+}
+
 function reportSelected(selectedReports, key) {
   return selectedReports.includes(key)
 }
@@ -208,7 +234,7 @@ export default function Reports() {
   const [metas, setMetas] = useState([])
   const [users, setUsers] = useState([])
   const [stores, setStores] = useState([])
-  const [filters, setFilters] = useState({ scope: '', storeName: '', sellerKey: '', groupName: '' })
+  const [filters, setFilters] = useState({ scope: '', storeName: '', sellerKey: '', groupName: '', saleFilters: [] })
   const [selectedReports, setSelectedReports] = useState(DEFAULT_REPORTS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -301,6 +327,8 @@ export default function Reports() {
     if (!hasSelection) return []
 
     return sales.filter((sale) => {
+      if (!saleMatchesTypeFilters(sale, filters.saleFilters)) return false
+
       if (filters.scope === 'store') {
         return normalize(getCanonicalStoreName(getSaleStoreName(sale, users), storeNameMap)) === normalize(filters.storeName)
       }
@@ -317,7 +345,7 @@ export default function Reports() {
 
       return false
     })
-  }, [filters.scope, filters.storeName, hasSelection, sales, selectedSeller, storeNameMap, users])
+  }, [filters.scope, filters.storeName, filters.saleFilters, hasSelection, sales, selectedSeller, storeNameMap, users])
 
   const filteredMetas = useMemo(() => {
     if (!hasSelection) return []
@@ -420,7 +448,7 @@ export default function Reports() {
   function changeFilter(e) {
     const { name, value } = e.target
     if (name === 'scope') {
-      setFilters({ scope: value, storeName: '', sellerKey: '', groupName: value === 'group' ? ECONOMIC_GROUP_NAME : '' })
+      setFilters((current) => ({ ...current, scope: value, storeName: '', sellerKey: '', groupName: value === 'group' ? ECONOMIC_GROUP_NAME : '' }))
       return
     }
     setFilters((current) => ({ ...current, [name]: value }))
@@ -432,6 +460,15 @@ export default function Reports() {
         ? current.filter((item) => item !== key)
         : [...current, key]
     ))
+  }
+
+  function toggleSaleFilter(key) {
+    setFilters((current) => ({
+      ...current,
+      saleFilters: current.saleFilters.includes(key)
+        ? current.saleFilters.filter((item) => item !== key)
+        : [...current.saleFilters, key],
+    }))
   }
 
   function addPdfTable(doc, autoTable, cursor, title, head, body) {
@@ -519,10 +556,11 @@ export default function Reports() {
     }
 
     if (reportSelected(selectedReports, 'sales')) {
-      addPdfTable(doc, autoTable, cursor, 'Lista de vendas', [['Cliente', 'CPF', 'Vendedor', 'Status', 'Valor', 'Comissão']], filteredSales.map((sale) => [
+      addPdfTable(doc, autoTable, cursor, 'Lista de vendas', [['Cliente', 'CPF', 'Vendedor', 'Matrícula', 'Status', 'Valor', 'Comissão']], filteredSales.map((sale) => [
         sale.customer || '',
         sale.cpf || '',
         getSellerName(sale, users),
+        getSellerRegistration(sale, users),
         sale.status || '',
         formatter(sale.amount),
         formatter(sale.commission || 0),
@@ -598,10 +636,11 @@ export default function Reports() {
         ['Cliente', ...saleValues.map((sale) => sale.customer || '')],
         ['CPF', ...saleValues.map((sale) => sale.cpf || '')],
         ['Vendedor', ...saleValues.map((sale) => (hasSales ? getSellerName(sale, users) : ''))],
+        ['Matrícula do Vendedor', ...saleValues.map((sale) => (hasSales ? getSellerRegistration(sale, users) : ''))],
         ['Status', ...saleValues.map((sale) => sale.status || '')],
         ['Valor', ...saleValues.map((sale) => (hasSales ? Number(sale.amount || 0) : ''))],
         ['Comissão vendedor', ...saleValues.map((sale) => (hasSales ? Number(sale.commission || 0) : ''))],
-        ['Comissão loja', ...saleValues.map((sale) => (hasSales ? Number(sale.storeCommission || 0) : ''))],
+        ['Comissão Gerente', ...saleValues.map((sale) => (hasSales ? Number(sale.storeCommission || 0) : ''))],
       ])
     }
 
@@ -624,34 +663,55 @@ export default function Reports() {
       {error && <div className="mb-4 bg-red-600 text-white p-3 rounded">{error}</div>}
       {loading && <div className="mb-4 text-sm text-gray-400">Carregando relatórios...</div>}
 
-      <div className="bg-gray-800 p-4 rounded mb-4">
-        <div className="grid gap-2 md:grid-cols-3 mb-4">
-          <select name="scope" value={filters.scope} onChange={changeFilter} className="p-2 bg-gray-700 rounded">
-            <option value="">Selecione loja, grupo ou vendedor</option>
-            <option value="store">Loja</option>
-            <option value="group">Grupo econômico</option>
-            <option value="seller">Vendedor</option>
-          </select>
+      <div className="rounded-xl border border-white/10 bg-gray-800 p-4 mb-4">
+        <div className="grid gap-3 md:grid-cols-3 mb-4">
+          <label className="flex flex-col gap-1 text-sm text-gray-300">
+            <span>Visão</span>
+            <select name="scope" value={filters.scope} onChange={changeFilter} className="h-11 bg-gray-700 px-3 rounded">
+              <option value="">Selecione loja, grupo ou vendedor</option>
+              <option value="store">Loja</option>
+              <option value="group">Grupo econômico</option>
+              <option value="seller">Vendedor</option>
+            </select>
+          </label>
           {filters.scope === 'group' && (
             <label className="flex flex-col gap-1 text-sm text-gray-300 md:col-span-2">
               <span>Nome do grupo econômico</span>
-              <input value={ECONOMIC_GROUP_NAME} disabled className="p-2 bg-gray-700 rounded opacity-80" />
+              <input value={ECONOMIC_GROUP_NAME} disabled className="h-11 bg-gray-700 px-3 rounded opacity-80" />
             </label>
           )}
 
           {filters.scope === 'store' && (
-            <select name="storeName" value={filters.storeName} onChange={changeFilter} className="p-2 bg-gray-700 rounded md:col-span-2">
-              <option value="">Selecione a loja</option>
-              {storeOptions.map((store) => <option key={store} value={store}>{store}</option>)}
-            </select>
+            <label className="flex flex-col gap-1 text-sm text-gray-300 md:col-span-2">
+              <span>Loja</span>
+              <select name="storeName" value={filters.storeName} onChange={changeFilter} className="h-11 bg-gray-700 px-3 rounded">
+                <option value="">Selecione a loja</option>
+                {storeOptions.map((store) => <option key={store} value={store}>{store}</option>)}
+              </select>
+            </label>
           )}
 
           {filters.scope === 'seller' && (
-            <select name="sellerKey" value={filters.sellerKey} onChange={changeFilter} className="p-2 bg-gray-700 rounded md:col-span-2">
-              <option value="">Selecione o vendedor</option>
-              {sellerOptions.map((seller) => <option key={seller.key} value={seller.key}>{seller.label}</option>)}
-            </select>
+            <label className="flex flex-col gap-1 text-sm text-gray-300 md:col-span-2">
+              <span>Vendedor</span>
+              <select name="sellerKey" value={filters.sellerKey} onChange={changeFilter} className="h-11 bg-gray-700 px-3 rounded">
+                <option value="">Selecione o vendedor</option>
+                {sellerOptions.map((seller) => <option key={seller.key} value={seller.key}>{seller.label}</option>)}
+              </select>
+            </label>
           )}
+        </div>
+
+        <div className="mb-4 rounded-lg border border-white/10 bg-gray-900/70 p-3">
+          <div className="mb-2 text-sm font-semibold text-gray-200">Filtros de venda</div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+            {SALE_FILTER_OPTIONS.map((option) => (
+              <label key={option.key} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] p-2 text-sm text-gray-200">
+                <input type="checkbox" checked={filters.saleFilters.includes(option.key)} onChange={() => toggleSaleFilter(option.key)} className="h-4 w-4 accent-cyan-300" />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-3">
@@ -830,6 +890,7 @@ export default function Reports() {
                       <th className="p-3">Cliente</th>
                       <th className="p-3">CPF</th>
                       <th className="p-3">Vendedor</th>
+                      <th className="p-3">Matrícula</th>
                       <th className="p-3">Status</th>
                       <th className="p-3">Valor</th>
                       <th className="p-3">Comissão</th>
@@ -842,6 +903,7 @@ export default function Reports() {
                         <td className="p-3">{sale.customer || '-'}</td>
                         <td className="p-3">{sale.cpf || '-'}</td>
                         <td className="p-3">{getSellerName(sale, users)}</td>
+                        <td className="p-3">{getSellerRegistration(sale, users) || '-'}</td>
                         <td className="p-3">{sale.status || '-'}</td>
                         <td className="p-3">{formatter(sale.amount)}</td>
                         <td className="p-3">{formatter(sale.commission || 0)}</td>
@@ -849,7 +911,7 @@ export default function Reports() {
                     ))}
                     {!filteredSales.length && (
                       <tr>
-                        <td className="p-4 text-gray-400" colSpan="7">Sem vendas para esse filtro.</td>
+                        <td className="p-4 text-gray-400" colSpan="8">Sem vendas para esse filtro.</td>
                       </tr>
                     )}
                   </tbody>

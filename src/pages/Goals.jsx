@@ -3,17 +3,8 @@ import { addGoal, clearStoreGoalDistribution, distributeStoreGoals as distribute
 import { useAuth } from '../contexts/AuthContext'
 
 const SERVICES = [
-  'Pós',
-  'Controle',
-  'Upgrade',
-  'Fibra',
+  'Gross',
   'Receita Total',
-  'Aparelhos',
-  'Acessórios',
-  'PayJoy',
-  'Seguros',
-  'DACC',
-  'Portabilidade',
 ]
 const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros'])
 const SELLER_GOAL_ROLES = ['Vendedor', 'Executivo']
@@ -994,37 +985,37 @@ export default function Goals() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1040px] border-collapse">
+                <table className="w-full min-w-[980px] border-separate border-spacing-0">
                   <thead className="bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400">
                     <tr>
-                      <th className="p-3 w-60">Serviço</th>
-                      <th className="min-w-[180px] p-3">Meta da loja</th>
-                      <th className="min-w-[160px] p-3">Por vendedor</th>
-                      <th className="min-w-[120px] p-3">Vendedores</th>
-                      <th className="min-w-[170px] p-3">Realizado da loja</th>
-                      <th className="min-w-[160px] p-3">Gap da loja</th>
+                      <th className="w-56 px-4 py-3">Serviço</th>
+                      <th className="min-w-[180px] px-4 py-3">Meta da loja</th>
+                      <th className="min-w-[170px] px-4 py-3">Por vendedor</th>
+                      <th className="min-w-[120px] px-4 py-3">Vendedores</th>
+                      <th className="min-w-[180px] px-4 py-3">Realizado da loja</th>
+                      <th className="min-w-[170px] px-4 py-3">Gap da loja</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
                     {distributionRows.map((row) => (
                       <tr key={row.type} className="transition hover:bg-white/[0.03]">
-                        <td className="p-3 font-semibold text-white">{row.type}</td>
-                        <td className="p-2">
-                          <div className="flex min-w-[160px] flex-nowrap items-center gap-2 rounded-md border border-white/10 bg-slate-800 px-2">
+                        <td className="px-4 py-3 font-semibold text-white">{row.type}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex min-w-[160px] flex-nowrap items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3">
                             {MONEY_SERVICES.has(row.type) && <span className="shrink-0 whitespace-nowrap text-sm text-slate-400">R$</span>}
                             <input
                               type="text"
                               inputMode="decimal"
                               value={row.targetValue}
                               onChange={(e) => changeRow(row.type, 'targetValue', e.target.value)}
-                              className="h-10 min-w-0 flex-1 whitespace-nowrap bg-transparent text-white outline-none"
+                              className="h-11 min-w-0 flex-1 whitespace-nowrap bg-transparent text-white outline-none"
                             />
                           </div>
                         </td>
-                        <td className="whitespace-nowrap p-3 font-semibold text-cyan-100">{formatGoalValue(row.type, row.sellerTarget)}</td>
-                        <td className="whitespace-nowrap p-3 text-slate-300">{row.sellersCount}</td>
-                        <td className="whitespace-nowrap p-3 text-slate-300">{formatGoalValue(row.type, row.currentValue)}</td>
-                        <td className="whitespace-nowrap p-3 text-slate-300">{formatGoalValue(row.type, row.gapValue)}</td>
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-cyan-100">{formatGoalValue(row.type, row.sellerTarget)}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-300">{row.sellersCount}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-300">{formatGoalValue(row.type, row.currentValue)}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-300">{formatGoalValue(row.type, row.gapValue)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1053,16 +1044,16 @@ export default function Goals() {
           ) : activeTab === 'sheet' ? (
             <form onSubmit={saveSpreadsheet} className="overflow-hidden rounded-xl border border-white/10 bg-slate-900">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1040px] border-collapse">
+                <table className="w-full min-w-[1080px] border-separate border-spacing-0">
                   <thead className="bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400">
                     <tr>
-                      <th className="p-3 w-60">Serviço</th>
-                      <th className="min-w-[180px] p-3">Meta</th>
-                      <th className="min-w-[160px] p-3">Meta semanal</th>
-                      <th className="min-w-[150px] p-3">Meta diária</th>
-                      <th className="min-w-[170px] p-3">Realizado</th>
-                      <th className="min-w-[160px] p-3">Gap</th>
-                      <th className="p-3 w-48">Status</th>
+                      <th className="w-56 px-4 py-3">Serviço</th>
+                      <th className="min-w-[190px] px-4 py-3">Meta</th>
+                      <th className="min-w-[165px] px-4 py-3">Meta semanal</th>
+                      <th className="min-w-[160px] px-4 py-3">Meta diária</th>
+                      <th className="min-w-[180px] px-4 py-3">Realizado</th>
+                      <th className="min-w-[170px] px-4 py-3">Gap</th>
+                      <th className="w-52 px-4 py-3">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
@@ -1073,48 +1064,48 @@ export default function Goals() {
                       const progressTextColor = getAchievementTextColor(row.currentValue, row.targetValue)
                       return (
                         <tr key={row.type} className="transition hover:bg-white/[0.03]">
-                          <td className="p-3">
+                          <td className="px-4 py-3">
                             <div className="font-semibold text-white">{row.type}</div>
                           </td>
-                          <td className="p-2">
+                          <td className="px-4 py-3">
                             {period.scope === 'store' ? (
-                              <div className="h-10 min-w-[160px] whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-slate-300">
+                              <div className="h-11 min-w-[165px] whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-slate-300">
                                 {formatGoalValue(row.type, row.targetValue)}
                               </div>
                             ) : (
-                              <div className="flex min-w-[160px] flex-nowrap items-center gap-2 rounded-md border border-white/10 bg-slate-800 px-2">
+                              <div className="flex min-w-[165px] flex-nowrap items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3">
                                 {MONEY_SERVICES.has(row.type) && <span className="shrink-0 whitespace-nowrap text-sm text-slate-400">R$</span>}
                                 <input
                                   type="text"
                                   inputMode="decimal"
                                   value={row.targetValue}
                                   onChange={(e) => changeRow(row.type, 'targetValue', e.target.value)}
-                                  className="h-10 min-w-0 flex-1 whitespace-nowrap bg-transparent text-white outline-none"
+                                  className="h-11 min-w-0 flex-1 whitespace-nowrap bg-transparent text-white outline-none"
                                 />
                               </div>
                             )}
                           </td>
-                          <td className="whitespace-nowrap p-3 text-sm text-slate-300">{formatGoalValue(row.type, row.weeklyTarget)}</td>
-                          <td className="whitespace-nowrap p-3 text-sm text-slate-300">{formatGoalValue(row.type, row.dailyTarget)}</td>
-                          <td className="p-2">
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.weeklyTarget)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.dailyTarget)}</td>
+                          <td className="px-4 py-3">
                             <input
                               type="text"
                               inputMode="decimal"
                               value={formatGoalValue(row.type, row.currentValue)}
                               disabled
-                              className="h-10 min-w-[150px] whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-3 text-slate-300 opacity-90"
+                              className="h-11 min-w-[160px] whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 text-slate-300 opacity-90"
                             />
                           </td>
-                          <td className="p-2">
+                          <td className="px-4 py-3">
                             <input
                               type="text"
                               inputMode="decimal"
                               value={formatGoalValue(row.type, row.gapValue)}
                               disabled
-                              className="h-10 min-w-[150px] whitespace-nowrap rounded-md border border-white/10 bg-white/5 px-3 text-slate-300 opacity-90"
+                              className="h-11 min-w-[150px] whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 text-slate-300 opacity-90"
                             />
                           </td>
-                          <td className="p-3">
+                          <td className="px-4 py-3">
                             <div className="min-w-40">
                               <div className="mb-1.5 flex items-center justify-between gap-3">
                                 <span className={`text-sm font-semibold ${progressTextColor}`}>
