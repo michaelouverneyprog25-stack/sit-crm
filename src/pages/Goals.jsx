@@ -95,6 +95,7 @@ function defaultPeriod() {
     managerId: '',
     managerName: '',
     storeName: '',
+    localName: '',
     groupName: '',
     storeCity: '',
     storeState: '',
@@ -252,6 +253,26 @@ function getUserStoreName(user = {}) {
   return user.storeName || user.store || user.loja || ''
 }
 
+function getStoreName(store = {}) {
+  return store.name || store.storeName || store.loja || ''
+}
+
+function getStoreLocalName(store = {}) {
+  const explicitLocal = store.localName || store.local || store.location || store.groupName || store.economicGroup || store.grupoEconomico
+  if (explicitLocal) return explicitLocal
+  const city = store.city || store.storeCity || store.cidade
+  const state = store.state || store.storeState || store.uf
+  return [city, state].map((value) => String(value || '').trim()).filter(Boolean).join(' / ')
+}
+
+function getUserLocalName(user = {}) {
+  const explicitLocal = user.localName || user.local || user.location || user.groupName || user.economicGroup || user.grupoEconomico
+  if (explicitLocal) return explicitLocal
+  const city = user.storeCity || user.city || user.cidade
+  const state = user.storeState || user.state || user.uf
+  return [city, state].map((value) => String(value || '').trim()).filter(Boolean).join(' / ')
+}
+
 function getUserStoreKey(user = {}) {
   const storeName = normalizeText(getUserStoreName(user))
   if (storeName) return storeName
@@ -272,6 +293,19 @@ function findSellerGoal(goals, userId, type, month, year) {
     && Number(goal.year) === Number(year)
     && !goal.storeName
     && !goal.groupName)
+}
+
+function getGoalTimestamp(goal = {}) {
+  const value = goal.updatedAt || goal.createdAt || ''
+  if (value?.toDate) return value.toDate().getTime()
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function findLatestGoalByType(goals, type) {
+  return goals
+    .filter((item) => item.type === type)
+    .sort((a, b) => getGoalTimestamp(b) - getGoalTimestamp(a))[0]
 }
 
 function getDistributedTarget(total, count, index) {
@@ -340,29 +374,47 @@ export default function Goals() {
   const [success, setSuccess] = useState('')
   const [activeTab, setActiveTab] = useState('sheet')
   const [distributeStoreGoals, setDistributeStoreGoals] = useState(true)
+  const [serviceFilter, setServiceFilter] = useState('')
 
   const currentUserRole = normalizeRole(currentUser?.role)
   const isSeller = SELLER_GOAL_ROLES.includes(currentUserRole)
-  const canSelectGroup = !isSeller
   const canSelectStore = !isSeller
   const canSelectSeller = !isSeller
+  const localOptions = useMemo(() => {
+    const byLocal = new Map()
+    stores.forEach((store) => {
+      const localName = getStoreLocalName(store)
+      const key = normalizeText(localName)
+      if (key) byLocal.set(key, localName)
+    })
+    users.forEach((user) => {
+      const localName = getUserLocalName(user)
+      const key = normalizeText(localName)
+      if (key && !byLocal.has(key)) byLocal.set(key, localName)
+    })
+    return [...byLocal.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [stores, users])
   const sellers = users
     .filter((user) => !user.disabled && isGoalSeller(user) && getUserId(user))
+    .filter((user) => !period.localName || normalizeText(getUserLocalName(user)) === normalizeText(period.localName))
+    .filter((user) => !period.storeName || normalizeText(getUserStoreName(user)) === normalizeText(period.storeName))
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
   const storeNames = useMemo(() => {
     const byName = new Map()
     stores.forEach((store) => {
-      const name = store.name
+      if (period.localName && normalizeText(getStoreLocalName(store)) !== normalizeText(period.localName)) return
+      const name = getStoreName(store)
       const key = normalizeText(name)
       if (key) byName.set(key, name)
     })
     users.forEach((user) => {
+      if (period.localName && normalizeText(getUserLocalName(user)) !== normalizeText(period.localName)) return
       const name = getUserStoreName(user)
       const key = normalizeText(name)
       if (key && !byName.has(key)) byName.set(key, name)
     })
     return [...byName.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-  }, [stores, users])
+  }, [stores, users, period.localName])
   const storeGoalSellers = useMemo(() => {
     if (period.scope !== 'store' || !period.storeName) return []
     const storeKey = normalizeText(period.storeName)
@@ -395,7 +447,7 @@ export default function Goals() {
       ? getGroupTotalsByType(Array.isArray(allGoalsData) ? allGoalsData : [], storesList, period.month, period.year)
       : new Map()
     setRows(SERVICES.map((service) => {
-      const goal = goals.find((item) => item.type === service)
+      const goal = findLatestGoalByType(goals, service)
       if (!goal) {
         const current = period.scope === 'group'
           ? Number(groupTotalsByType.get(service)?.currentValue || 0)
@@ -563,6 +615,7 @@ export default function Goals() {
       userName: currentUser.name || '',
       storeName: '',
       groupName: '',
+      localName: '',
       storeCity: currentUser.storeCity || '',
       storeState: currentUser.storeState || '',
     }))
@@ -576,15 +629,15 @@ export default function Goals() {
 
   function changePeriod(e) {
     const { name, value } = e.target
-    if (name === 'scope') {
-      if (value === 'group' && !canSelectGroup) return
+    if (name === 'localName') {
       setPeriod((current) => ({
         ...current,
-        scope: value,
+        localName: value,
+        scope: '',
         userId: '',
         userName: '',
         storeName: '',
-        groupName: value === 'group' ? ECONOMIC_GROUP_NAME : '',
+        groupName: '',
         storeCity: '',
         storeState: '',
       }))
@@ -598,6 +651,7 @@ export default function Goals() {
         userId: value,
         userName: user?.name || '',
         storeName: '',
+        localName: value ? getUserLocalName(user) || current.localName : current.localName,
         groupName: '',
         storeCity: user?.storeCity || '',
         storeState: user?.storeState || '',
@@ -611,25 +665,12 @@ export default function Goals() {
         ...current,
         scope: value ? 'store' : '',
         storeName: savedStore?.name || value,
+        localName: value ? getStoreLocalName(savedStore) || getUserLocalName(userFromStore) || current.localName : current.localName,
         storeCity: savedStore?.city || userFromStore?.storeCity || current.storeCity,
         storeState: savedStore?.state || userFromStore?.storeState || current.storeState,
         userId: '',
         userName: '',
         groupName: '',
-      }))
-      return
-    }
-    if (name === 'groupName') {
-      if (!canSelectGroup) return
-      setPeriod((current) => ({
-        ...current,
-        scope: value ? 'group' : '',
-        groupName: value,
-        userId: '',
-        userName: '',
-        storeName: '',
-        storeCity: '',
-        storeState: '',
       }))
       return
     }
@@ -667,6 +708,17 @@ export default function Goals() {
     setSuccess('')
 
     try {
+      const rowsToSave = visibleRows.filter((row) => (
+        row.id
+        || toNumber(row.targetValue) > 0
+        || toNumber(row.currentValue) > 0
+        || toNumber(row.gapValue) > 0
+      ))
+
+      if (!rowsToSave.length) {
+        throw new Error('Informe pelo menos uma meta antes de salvar.')
+      }
+
       const allGroupGoals = period.scope === 'group'
         ? await getGoals({ month: period.month, year: period.year })
         : []
@@ -685,7 +737,7 @@ export default function Goals() {
           storeName: period.storeName.trim(),
           storeCity: period.storeCity.trim(),
           storeState: period.storeState.trim().toUpperCase(),
-          rows: rows.map((row) => ({
+          rows: rowsToSave.map((row) => ({
             type: row.type,
             targetValue: toNumber(row.targetValue),
             currentValue: toNumber(row.currentValue),
@@ -699,7 +751,7 @@ export default function Goals() {
 
       const writes = []
 
-      rows.forEach((row) => {
+      rowsToSave.forEach((row) => {
         const basePayload = {
           type: row.type,
           targetValue: toNumber(row.targetValue),
@@ -779,7 +831,10 @@ export default function Goals() {
     }
   }
 
-  const visibleRows = rows
+  const visibleRows = useMemo(() => {
+    if (!serviceFilter) return rows
+    return rows.filter((row) => row.type === serviceFilter)
+  }, [rows, serviceFilter])
 
   const totals = useMemo(() => {
     return visibleRows.reduce((acc, row) => {
@@ -896,7 +951,65 @@ export default function Goals() {
                 <p className="text-sm text-slate-400">Escolha o período e a visão das metas.</p>
               </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-6">
+              {canSelectStore && (
+                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
+                  <span>Local</span>
+                  <select
+                    name="localName"
+                    value={period.localName}
+                    onChange={changePeriod}
+                    className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
+                  >
+                    <option value="">Todos os locais</option>
+                    {localOptions.map((localName) => <option key={localName} value={localName}>{localName}</option>)}
+                  </select>
+                </label>
+              )}
+              {canSelectStore && (
+                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
+                  <span>Loja</span>
+                  <select
+                    name="storeName"
+                    value={period.scope === 'store' ? period.storeName : ''}
+                    onChange={changePeriod}
+                    className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
+                  >
+                    <option value="">Todas / selecione</option>
+                    {storeNames.map((store) => <option key={store} value={store}>{store}</option>)}
+                  </select>
+                </label>
+              )}
+              {isSeller ? (
+                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
+                  <span>Vendedor</span>
+                  <input value={period.userName || currentUser?.name || 'Usuário'} disabled className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-slate-300 opacity-80" />
+                </label>
+              ) : canSelectSeller && (
+                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
+                  <span>Vendedor</span>
+                  <select
+                    name="userId"
+                    value={period.scope === 'seller' ? period.userId : ''}
+                    onChange={changePeriod}
+                    className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
+                  >
+                    <option value="">Todos / selecione</option>
+                    {sellers.map((user) => <option key={getUserId(user)} value={getUserId(user)}>{user.name || 'Sem nome'}</option>)}
+                  </select>
+                </label>
+              )}
+              <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
+                <span>Serviço/Produto</span>
+                <select
+                  value={serviceFilter}
+                  onChange={(e) => setServiceFilter(e.target.value)}
+                  className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
+                >
+                  <option value="">Todos os serviços</option>
+                  {SERVICES.map((service) => <option key={service} value={service}>{service}</option>)}
+                </select>
+              </label>
               <label className="flex flex-col gap-1 text-sm text-slate-300">
                 <span>Mês</span>
                 <input name="month" type="number" min="1" max="12" value={period.month} onChange={changePeriod} className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300" />
@@ -905,43 +1018,6 @@ export default function Goals() {
                 <span>Ano</span>
                 <input name="year" type="number" value={period.year} onChange={changePeriod} className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300" />
               </label>
-              <div className="md:col-span-4 rounded-lg border border-white/10 bg-slate-950/55 p-3">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {canSelectStore && (
-                    <label className="flex flex-col gap-1 text-sm text-slate-300">
-                      <span>Local</span>
-                      <select
-                        name="storeName"
-                        value={period.scope === 'store' ? period.storeName : ''}
-                        onChange={changePeriod}
-                        className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
-                      >
-                        <option value="">Todas / selecione</option>
-                        {storeNames.map((store) => <option key={store} value={store}>{store}</option>)}
-                      </select>
-                    </label>
-                  )}
-                  {isSeller ? (
-                    <label className="flex flex-col gap-1 text-sm text-slate-300">
-                      <span>Vendedor</span>
-                      <input value={period.userName || currentUser?.name || 'Usuário'} disabled className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-slate-300 opacity-80" />
-                    </label>
-                  ) : canSelectSeller && (
-                    <label className="flex flex-col gap-1 text-sm text-slate-300">
-                      <span>Vendedor</span>
-                      <select
-                        name="userId"
-                        value={period.scope === 'seller' ? period.userId : ''}
-                        onChange={changePeriod}
-                        className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
-                      >
-                        <option value="">Todos / selecione</option>
-                        {sellers.map((user) => <option key={getUserId(user)} value={getUserId(user)}>{user.name || 'Sem nome'}</option>)}
-                      </select>
-                    </label>
-                  )}
-                </div>
-              </div>
               {!isSeller && period.scope === 'store' && (
                 <>
                   <label className="flex flex-col gap-1 text-sm text-slate-300">
