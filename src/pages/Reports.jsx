@@ -319,7 +319,7 @@ export default function Reports() {
   }, [filters.sellerKey, sellerOptions])
 
   const hasSelection = (filters.scope === 'store' && filters.storeName) || (filters.scope === 'seller' && filters.sellerKey) || (filters.scope === 'group' && filters.groupName)
-  const hasSelectedReports = selectedReports.length > 0
+  const hasSelectedReports = selectedReports.length > 0 || filters.saleFilters.length > 0
   const canViewManagerCommission = MANAGER_COMMISSION_ROLES.includes(currentUser?.role)
   const selectedLabel = filters.scope === 'store'
     ? filters.storeName
@@ -331,8 +331,6 @@ export default function Reports() {
     if (!hasSelection) return []
 
     return sales.filter((sale) => {
-      if (!saleMatchesTypeFilters(sale, filters.saleFilters)) return false
-
       if (filters.scope === 'store') {
         return normalize(getCanonicalStoreName(getSaleStoreName(sale, users), storeNameMap)) === normalize(filters.storeName)
       }
@@ -349,7 +347,23 @@ export default function Reports() {
 
       return false
     })
-  }, [filters.scope, filters.storeName, filters.saleFilters, hasSelection, sales, selectedSeller, storeNameMap, users])
+  }, [filters.scope, filters.storeName, hasSelection, sales, selectedSeller, storeNameMap, users])
+
+  const saleReportSections = useMemo(() => {
+    return SALE_FILTER_OPTIONS
+      .filter((option) => filters.saleFilters.includes(option.key))
+      .map((option) => {
+        const sectionSales = filteredSales.filter((sale) => saleMatchesTypeFilters(sale, [option.key]))
+        const total = sectionSales.reduce((sum, sale) => sum + Number(sale.amount || sale.deviceValue || sale.accessoryValue || 0), 0)
+        const closed = sectionSales.filter((sale) => sale.status === 'Fechada' || sale.status === 'Sim').length
+        return {
+          ...option,
+          sales: sectionSales,
+          total,
+          closed,
+        }
+      })
+  }, [filters.saleFilters, filteredSales])
 
   const filteredMetas = useMemo(() => {
     if (!hasSelection) return []
@@ -576,7 +590,7 @@ export default function Reports() {
     }
 
     if (reportSelected(selectedReports, 'sales')) {
-      addPdfTable(doc, autoTable, cursor, 'Lista de vendas', [['Cliente', 'CPF', 'Vendedor', 'Matrícula', 'Status', 'Valor', 'Comissão']], filteredSales.map((sale) => [
+      cursor = addPdfTable(doc, autoTable, cursor, 'Lista de vendas', [['Cliente', 'CPF', 'Vendedor', 'Matrícula', 'Status', 'Valor', 'Comissão']], filteredSales.map((sale) => [
         sale.customer || '',
         sale.cpf || '',
         getSellerName(sale, users),
@@ -586,6 +600,16 @@ export default function Reports() {
         formatter(sale.commission || 0),
       ]))
     }
+
+    saleReportSections.forEach((section) => {
+      cursor = addPdfTable(doc, autoTable, cursor, section.label, [['Data', 'Cliente', 'Vendedor', 'Status', 'Valor']], section.sales.map((sale) => [
+        getSaleDate(sale)?.toLocaleDateString('pt-BR') || '',
+        sale.customer || '',
+        getSellerName(sale, users),
+        sale.status || '',
+        formatter(sale.amount || sale.deviceValue || sale.accessoryValue || 0),
+      ]))
+    })
 
     doc.save('relatorio-filtrado.pdf')
   }
@@ -663,6 +687,22 @@ export default function Reports() {
         ...(canViewManagerCommission ? [
           ['Comissão Gerente', ...saleValues.map((sale) => (hasSales ? Number(sale.storeCommission || 0) : ''))],
         ] : []),
+      ])
+    }
+
+    for (const section of saleReportSections) {
+      await appendSheet(section.label.slice(0, 31), [
+        ['Resumo', 'Quantidade', 'Fechadas', 'Valor'],
+        [section.label, section.sales.length, section.closed, section.total],
+        [],
+        ['Data', 'Cliente', 'Vendedor', 'Status', 'Valor'],
+        ...section.sales.map((sale) => [
+          getSaleDate(sale)?.toLocaleDateString('pt-BR') || '',
+          sale.customer || '',
+          getSellerName(sale, users),
+          sale.status || '',
+          Number(sale.amount || sale.deviceValue || sale.accessoryValue || 0),
+        ]),
       ])
     }
 
@@ -769,6 +809,58 @@ export default function Reports() {
         </div>
       ) : (
         <>
+          {saleReportSections.map((section) => (
+            <div key={section.key} className="bg-gray-800 rounded overflow-hidden mb-4">
+              <div className="p-4 border-b border-gray-700">
+                <h2 className="text-xl">{section.label}</h2>
+                <div className="text-sm text-gray-400">{selectedLabel}</div>
+              </div>
+              <div className="grid gap-3 p-4 md:grid-cols-3">
+                <div className="bg-gray-900 p-4 rounded">
+                  <div className="text-sm text-gray-400 mb-2">Quantidade</div>
+                  <div className="text-3xl font-semibold">{section.sales.length}</div>
+                </div>
+                <div className="bg-gray-900 p-4 rounded">
+                  <div className="text-sm text-gray-400 mb-2">Fechadas</div>
+                  <div className="text-3xl font-semibold">{section.closed}</div>
+                </div>
+                <div className="bg-gray-900 p-4 rounded">
+                  <div className="text-sm text-gray-400 mb-2">Valor</div>
+                  <div className="text-3xl font-semibold">{formatter(section.total)}</div>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] border-collapse">
+                  <thead className="bg-gray-900 text-left text-sm text-gray-300">
+                    <tr>
+                      <th className="p-3">Data</th>
+                      <th className="p-3">Cliente</th>
+                      <th className="p-3">Vendedor</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {section.sales.map((sale) => (
+                      <tr key={`${section.key}-${sale.id}`} className="border-t border-gray-700">
+                        <td className="p-3">{getSaleDate(sale)?.toLocaleDateString('pt-BR') || '-'}</td>
+                        <td className="p-3">{sale.customer || '-'}</td>
+                        <td className="p-3">{getSellerName(sale, users)}</td>
+                        <td className="p-3">{sale.status || '-'}</td>
+                        <td className="p-3">{formatter(sale.amount || sale.deviceValue || sale.accessoryValue || 0)}</td>
+                      </tr>
+                    ))}
+                    {!section.sales.length && (
+                      <tr>
+                        <td className="p-4 text-gray-400" colSpan="5">Sem vendas para esse relatório.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
           {reportSelected(selectedReports, 'summary') && (
             <div className="grid gap-4 md:grid-cols-4 mb-4">
               <ChartCard title="Receita Total" value={formatter(summary.revenue)} percent={Math.min(100, summary.revenue / 1000)} label={selectedLabel} />
