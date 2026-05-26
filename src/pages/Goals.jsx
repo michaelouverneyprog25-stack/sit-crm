@@ -8,14 +8,12 @@ const SERVICES = [
   'Fibra',
   'Upgrade',
   'Receita Total',
-  'Gross',
   'Portabilidade',
   'Aparelhos',
   'Acessórios',
   'DACC',
   'Seguros',
   'PayJoy',
-  'Dependentes',
 ]
 const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros', 'DACC'])
 const SELLER_GOAL_ROLES = ['Vendedor', 'Executivo']
@@ -874,7 +872,7 @@ export default function Goals() {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">SIT.LUMX CRM</p>
               <h1 className="mt-1 text-3xl font-semibold text-white">Metas</h1>
               <p className="mt-1 text-sm text-slate-300">
-                Painel mensal por serviço, com realizado sincronizado por vendedor, loja e grupo econômico.
+                Painel mensal por serviço, com realizado sincronizado por vendedor e local.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -909,23 +907,9 @@ export default function Goals() {
               </label>
               <div className="md:col-span-4 rounded-lg border border-white/10 bg-slate-950/55 p-3">
                 <div className="grid gap-3 md:grid-cols-3">
-                  {canSelectGroup && (
-                    <label className="flex flex-col gap-1 text-sm text-slate-300">
-                      <span>Grupo Econômico</span>
-                      <select
-                        name="groupName"
-                        value={period.scope === 'group' ? period.groupName : ''}
-                        onChange={changePeriod}
-                        className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
-                      >
-                        <option value="">Todos / selecione</option>
-                        <option value={ECONOMIC_GROUP_NAME}>{ECONOMIC_GROUP_NAME}</option>
-                      </select>
-                    </label>
-                  )}
                   {canSelectStore && (
                     <label className="flex flex-col gap-1 text-sm text-slate-300">
-                      <span>Loja</span>
+                      <span>Local</span>
                       <select
                         name="storeName"
                         value={period.scope === 'store' ? period.storeName : ''}
@@ -1014,7 +998,7 @@ export default function Goals() {
 
       {!canShowSpreadsheet ? (
         <div className="rounded-xl border border-white/10 bg-slate-900 p-8 text-slate-300">
-          Selecione uma loja, grupo econômico ou vendedor para abrir a planilha de metas.
+          Selecione um local ou vendedor para abrir a planilha de metas.
         </div>
       ) : (
         <>

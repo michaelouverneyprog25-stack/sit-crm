@@ -49,14 +49,14 @@ describe('Goals page filters', () => {
   it('shows goal filters for admin without requiring the old scope selector', async () => {
     render(<Goals />)
 
-    expect(await screen.findByLabelText('Loja')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Local')).toBeInTheDocument()
     expect(screen.getByLabelText('Vendedor')).toBeInTheDocument()
-    expect(screen.getByLabelText('Grupo Econômico')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Grupo Econômico')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Serviços')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument()
 
     await waitFor(() => {
-      expect(within(screen.getByLabelText('Loja')).getByRole('option', { name: 'Loja Centro' })).toBeInTheDocument()
+      expect(within(screen.getByLabelText('Local')).getByRole('option', { name: 'Loja Centro' })).toBeInTheDocument()
       expect(within(screen.getByLabelText('Vendedor')).getByRole('option', { name: 'Ana Vendedora' })).toBeInTheDocument()
       expect(within(screen.getByLabelText('Vendedor')).getByRole('option', { name: 'Bia Executiva' })).toBeInTheDocument()
     })
@@ -65,14 +65,15 @@ describe('Goals page filters', () => {
   it('loads store goals and keeps all service rows visible without service filter', async () => {
     render(<Goals />)
 
-    fireEvent.change(await screen.findByLabelText('Loja'), { target: { value: 'Loja Centro' } })
+    fireEvent.change(await screen.findByLabelText('Local'), { target: { value: 'Loja Centro' } })
 
     await waitFor(() => {
       expect(getGoalsMock).toHaveBeenCalledWith(expect.objectContaining({ storeName: 'Loja Centro' }))
       const table = screen.getByRole('table')
       expect(within(table).getByText('Receita Total')).toBeInTheDocument()
       expect(within(table).getByText('Fibra')).toBeInTheDocument()
-      expect(within(table).getByText('Dependentes')).toBeInTheDocument()
+      expect(within(table).queryByText('Dependentes')).not.toBeInTheDocument()
+      expect(within(table).queryByText('Gross')).not.toBeInTheDocument()
       expect(within(table).getByRole('columnheader', { name: 'Projeção' })).toBeInTheDocument()
       expect(within(table).getByRole('columnheader', { name: 'Média atual' })).toBeInTheDocument()
       expect(within(table).getByRole('columnheader', { name: 'Dias úteis' })).toBeInTheDocument()
@@ -101,7 +102,7 @@ describe('Goals page filters', () => {
     render(<Goals />)
 
     expect(await screen.findByLabelText('Vendedor')).toHaveValue('Bia Executiva')
-    expect(screen.queryByLabelText('Loja')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Local')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Grupo Econômico')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Serviços')).not.toBeInTheDocument()
   })
