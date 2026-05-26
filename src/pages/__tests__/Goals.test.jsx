@@ -77,6 +77,8 @@ describe('Goals page filters', () => {
       expect(within(table).getByRole('columnheader', { name: 'Média atual' })).toBeInTheDocument()
       expect(within(table).getByRole('columnheader', { name: 'Dias úteis' })).toBeInTheDocument()
       expect(within(table).getByRole('columnheader', { name: 'Restante' })).toBeInTheDocument()
+      const fibraRow = within(table).getByText('Fibra').closest('tr')
+      expect(within(fibraRow).getAllByText(/\b\d{1,2}\b/).length).toBeGreaterThan(0)
     })
 
     fireEvent.change(screen.getByLabelText('Serviços'), { target: { value: 'Fibra' } })

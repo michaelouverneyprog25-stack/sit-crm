@@ -35,6 +35,58 @@ const MONTHS = [
   'Dezembro',
 ]
 
+function calculateBusinessDayFallback(month, year) {
+  const monthIndex = Number(month) - 1
+  const numericYear = Number(year)
+  if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11 || !numericYear) {
+    return {
+      businessDaysCount: '',
+      remainingBusinessDays: '',
+      holidayCount: '',
+      holidays: [],
+    }
+  }
+
+  const today = new Date()
+  const isCurrentMonth = today.getFullYear() === numericYear && today.getMonth() === monthIndex
+  const lastDay = new Date(numericYear, monthIndex + 1, 0).getDate()
+  let businessDaysCount = 0
+  let remainingBusinessDays = 0
+
+  for (let day = 1; day <= lastDay; day += 1) {
+    const date = new Date(numericYear, monthIndex, day)
+    if (date.getDay() === 0) continue
+    businessDaysCount += 1
+
+    if (!isCurrentMonth || day >= today.getDate()) {
+      remainingBusinessDays += 1
+    }
+  }
+
+  if (!isCurrentMonth && new Date(numericYear, monthIndex, lastDay) < today) {
+    remainingBusinessDays = 0
+  }
+
+  return {
+    businessDaysCount,
+    remainingBusinessDays,
+    holidayCount: 0,
+    holidays: [],
+  }
+}
+
+function withCalendarFallback(calendarData, period) {
+  const fallback = calculateBusinessDayFallback(period.month, period.year)
+  return {
+    ...fallback,
+    ...calendarData,
+    businessDaysCount: calendarData?.businessDaysCount || fallback.businessDaysCount,
+    remainingBusinessDays: calendarData?.remainingBusinessDays || fallback.remainingBusinessDays,
+    holidayCount: calendarData?.holidayCount ?? fallback.holidayCount,
+    holidays: Array.isArray(calendarData?.holidays) ? calendarData.holidays : fallback.holidays,
+  }
+}
+
 function defaultPeriod() {
   const now = new Date()
   return {
@@ -294,7 +346,7 @@ export default function Goals() {
 
   const currentUserRole = normalizeRole(currentUser?.role)
   const isSeller = SELLER_GOAL_ROLES.includes(currentUserRole)
-  const canSelectGroup = ['Administrador', 'Gestor Master'].includes(currentUserRole)
+  const canSelectGroup = !isSeller
   const canSelectStore = !isSeller
   const canSelectSeller = !isSeller
   const sellers = users
@@ -458,7 +510,7 @@ export default function Goals() {
       const allGoalsData = period.scope === 'store' || period.scope === 'group'
         ? await getGoals({ month: period.month, year: period.year })
         : goalsData
-      applyGoalsToRows(goalsData, calendarData, allGoalsData, loadedUsers, loadedStores)
+      applyGoalsToRows(goalsData, withCalendarFallback(calendarData, period), allGoalsData, loadedUsers, loadedStores)
     } catch (err) {
       console.error(err)
       setError('Não foi possível carregar a planilha de metas.')
@@ -498,7 +550,7 @@ export default function Goals() {
         : period.scope === 'group'
           ? goals.filter((goal) => normalizeText(goal.groupName) === normalizeText(period.groupName))
           : goals
-      applyGoalsToRows(visibleGoals, {}, goals, users, stores)
+      applyGoalsToRows(visibleGoals, withCalendarFallback({}, period), goals, users, stores)
     }, (err) => {
       console.warn('Sincronização em tempo real indisponível. Mantendo carregamento pela API/Firestore.', err)
       setError(err.message || 'Sincronização em tempo real indisponível.')
