@@ -3,10 +3,20 @@ import { addGoal, clearStoreGoalDistribution, distributeStoreGoals as distribute
 import { useAuth } from '../contexts/AuthContext'
 
 const SERVICES = [
+  'Acessórios',
+  'Aparelhos',
+  'Controle',
+  'DACC',
+  'Fibra',
   'Gross',
+  'PayJoy',
+  'Portabilidade',
+  'Pós',
   'Receita Total',
+  'Seguros',
+  'Upgrade',
 ]
-const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros'])
+const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros', 'DACC'])
 const SELLER_GOAL_ROLES = ['Vendedor', 'Executivo']
 const ECONOMIC_GROUP_NAME = 'INTERCELL'
 const MONTHS = [
@@ -270,6 +280,7 @@ export default function Goals() {
   const { currentUser } = useAuth()
   const [period, setPeriod] = useState(defaultPeriod)
   const [rows, setRows] = useState(emptyRows)
+  const [serviceFilter, setServiceFilter] = useState('')
   const [users, setUsers] = useState([])
   const [stores, setStores] = useState([])
   const [loading, setLoading] = useState(false)
@@ -281,7 +292,10 @@ export default function Goals() {
   const [distributeStoreGoals, setDistributeStoreGoals] = useState(true)
 
   const currentUserRole = normalizeRole(currentUser?.role)
-  const isSeller = currentUserRole === 'Vendedor'
+  const isSeller = SELLER_GOAL_ROLES.includes(currentUserRole)
+  const canSelectGroup = ['Administrador', 'Gestor Master'].includes(currentUserRole)
+  const canSelectStore = !isSeller
+  const canSelectSeller = !isSeller
   const sellers = users
     .filter((user) => !user.disabled && isGoalSeller(user) && getUserId(user))
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
@@ -308,7 +322,7 @@ export default function Goals() {
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
   }, [period.scope, period.storeName, users])
   const canShowSpreadsheet = (isSeller && period.userId)
-    || (period.scope === 'store' && period.storeName.trim() && period.storeCity.trim() && period.storeState.trim())
+    || (period.scope === 'store' && period.storeName.trim())
     || (period.scope === 'seller' && period.userId)
     || (period.scope === 'group' && period.groupName)
 
@@ -513,6 +527,7 @@ export default function Goals() {
   function changePeriod(e) {
     const { name, value } = e.target
     if (name === 'scope') {
+      if (value === 'group' && !canSelectGroup) return
       setPeriod((current) => ({
         ...current,
         scope: value,
@@ -527,7 +542,16 @@ export default function Goals() {
     }
     if (name === 'userId') {
       const user = users.find((item) => getUserId(item) === value)
-      setPeriod((current) => ({ ...current, userId: value, userName: user?.name || '', storeName: '', groupName: '', storeCity: user?.storeCity || '', storeState: user?.storeState || '' }))
+      setPeriod((current) => ({
+        ...current,
+        scope: value ? 'seller' : '',
+        userId: value,
+        userName: user?.name || '',
+        storeName: '',
+        groupName: '',
+        storeCity: user?.storeCity || '',
+        storeState: user?.storeState || '',
+      }))
       return
     }
     if (name === 'storeName') {
@@ -535,12 +559,27 @@ export default function Goals() {
       const userFromStore = users.find((user) => normalizeText(user.storeName || user.store || user.loja) === normalizeText(value))
       setPeriod((current) => ({
         ...current,
+        scope: value ? 'store' : '',
         storeName: savedStore?.name || value,
         storeCity: savedStore?.city || userFromStore?.storeCity || current.storeCity,
         storeState: savedStore?.state || userFromStore?.storeState || current.storeState,
         userId: '',
         userName: '',
         groupName: '',
+      }))
+      return
+    }
+    if (name === 'groupName') {
+      if (!canSelectGroup) return
+      setPeriod((current) => ({
+        ...current,
+        scope: value ? 'group' : '',
+        groupName: value,
+        userId: '',
+        userName: '',
+        storeName: '',
+        storeCity: '',
+        storeState: '',
       }))
       return
     }
@@ -690,14 +729,19 @@ export default function Goals() {
     }
   }
 
+  const visibleRows = useMemo(() => {
+    if (!serviceFilter) return rows
+    return rows.filter((row) => row.type === serviceFilter)
+  }, [rows, serviceFilter])
+
   const totals = useMemo(() => {
-    return rows.reduce((acc, row) => {
+    return visibleRows.reduce((acc, row) => {
       acc.target += toNumber(row.targetValue)
       acc.current += toNumber(row.currentValue)
       acc.gap += toNumber(row.gapValue)
       return acc
     }, { target: 0, current: 0, gap: 0 })
-  }, [rows])
+  }, [visibleRows])
   const totalProgress = getProgressPercent(totals.current, totals.target)
   const selectedScopeLabel = isSeller
     ? (period.userName || currentUser?.name || 'Vendedor')
@@ -710,7 +754,7 @@ export default function Goals() {
           : 'Nenhum selecionado'
 
   const projectionRows = useMemo(() => {
-    return rows.map((row) => {
+    return visibleRows.map((row) => {
       const target = toNumber(row.targetValue)
       const current = toNumber(row.currentValue)
       const businessDays = Number(row.businessDaysCount || 0)
@@ -739,7 +783,7 @@ export default function Goals() {
         projectedStatus: statusFromValues(projectedValue, target),
       }
     })
-  }, [rows])
+  }, [visibleRows])
 
   const projectionSummary = useMemo(() => {
     const withTarget = projectionRows.filter((row) => row.target > 0)
@@ -756,13 +800,13 @@ export default function Goals() {
   }, [projectionRows])
 
   const distributionRows = useMemo(() => {
-    return rows.map((row) => ({
+    return visibleRows.map((row) => ({
       ...row,
       storeTarget: toNumber(row.targetValue),
       sellerTarget: getDistributedTarget(row.targetValue, storeGoalSellers.length, 0),
       sellersCount: storeGoalSellers.length,
     }))
-  }, [rows, storeGoalSellers.length])
+  }, [visibleRows, storeGoalSellers.length])
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
@@ -812,36 +856,65 @@ export default function Goals() {
                   <input value={period.userName || currentUser?.name || 'Usuário'} disabled className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-slate-300 opacity-80" />
                 </label>
               ) : (
-                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
-                  <span>Tipo</span>
-                  <select name="scope" value={period.scope} onChange={changePeriod} className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300">
-                    <option value="">Selecione loja, grupo ou vendedor</option>
-                    <option value="store">Loja</option>
-                    <option value="group">Grupo econômico</option>
-                    <option value="seller">Vendedor</option>
-                  </select>
-                </label>
+                <>
+                  {canSelectStore && (
+                    <label className="flex flex-col gap-1 text-sm text-slate-300">
+                      <span>Loja</span>
+                      <select
+                        name="storeName"
+                        value={period.scope === 'store' ? period.storeName : ''}
+                        onChange={changePeriod}
+                        className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
+                      >
+                        <option value="">Todas / selecione</option>
+                        {storeNames.map((store) => <option key={store} value={store}>{store}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {canSelectSeller && (
+                    <label className="flex flex-col gap-1 text-sm text-slate-300">
+                      <span>Vendedor</span>
+                      <select
+                        name="userId"
+                        value={period.scope === 'seller' ? period.userId : ''}
+                        onChange={changePeriod}
+                        className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
+                      >
+                        <option value="">Todos / selecione</option>
+                        {sellers.map((user) => <option key={getUserId(user)} value={getUserId(user)}>{user.name || 'Sem nome'}</option>)}
+                      </select>
+                    </label>
+                  )}
+                </>
               )}
-              {!isSeller && period.scope === 'group' && (
-                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
-                  <span>Nome do grupo econômico</span>
-                  <input value={ECONOMIC_GROUP_NAME} disabled className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-slate-300 opacity-80" />
-                </label>
-              )}
-              {!isSeller && period.scope === 'store' && (
-                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
-                  <span>Loja</span>
+              {canSelectGroup && (
+                <label className="flex flex-col gap-1 text-sm text-slate-300">
+                  <span>Grupo</span>
                   <select
-                    name="storeName"
-                    value={period.storeName}
+                    name="groupName"
+                    value={period.scope === 'group' ? period.groupName : ''}
                     onChange={changePeriod}
                     className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
                   >
-                    <option value="">Selecione a loja</option>
-                    {storeNames.map((store) => <option key={store} value={store}>{store}</option>)}
+                    <option value="">Todos / selecione</option>
+                    <option value={ECONOMIC_GROUP_NAME}>{ECONOMIC_GROUP_NAME}</option>
                   </select>
                 </label>
               )}
+              <label className="flex flex-col gap-1 text-sm text-slate-300">
+                <span>Serviços</span>
+                <select
+                  value={serviceFilter}
+                  onChange={(event) => setServiceFilter(event.target.value)}
+                  className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
+                >
+                  <option value="">Todos os serviços</option>
+                  {SERVICES.filter((service) => service !== 'Gross').map((service) => (
+                    <option key={service} value={service}>{service}</option>
+                  ))}
+                  <option value="Gross">Gross</option>
+                </select>
+              </label>
               {!isSeller && period.scope === 'store' && (
                 <>
                   <label className="flex flex-col gap-1 text-sm text-slate-300">
@@ -853,15 +926,6 @@ export default function Goals() {
                     <input name="storeState" placeholder="UF" value={period.storeState} onChange={changePeriod} maxLength={2} className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 uppercase text-white outline-none transition focus:border-cyan-300" />
                   </label>
                 </>
-              )}
-              {!isSeller && period.scope === 'seller' && (
-                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
-                  <span>Vendedor</span>
-                  <select name="userId" value={period.userId} onChange={changePeriod} className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300">
-                    <option value="">Selecione o vendedor</option>
-                    {sellers.map((user) => <option key={getUserId(user)} value={getUserId(user)}>{user.name || 'Sem nome'}</option>)}
-                  </select>
-                </label>
               )}
             </div>
           </div>
@@ -899,7 +963,7 @@ export default function Goals() {
 
       {!canShowSpreadsheet ? (
         <div className="rounded-xl border border-white/10 bg-slate-900 p-8 text-slate-300">
-          Selecione uma loja com cidade/UF, grupo econômico ou vendedor para abrir a planilha de metas.
+          Selecione uma loja, grupo econômico ou vendedor para abrir a planilha de metas.
         </div>
       ) : (
         <>
@@ -1057,7 +1121,7 @@ export default function Goals() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
-                    {rows.map((row) => {
+                    {visibleRows.map((row) => {
                       const progress = getProgressPercent(row.currentValue, row.targetValue)
                       const achievement = getAchievementPercent(row.currentValue, row.targetValue)
                       const progressColor = getAchievementColor(row.currentValue, row.targetValue)
