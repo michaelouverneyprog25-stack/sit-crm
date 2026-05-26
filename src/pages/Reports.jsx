@@ -475,6 +475,22 @@ export default function Reports() {
     }))
   }
 
+  function selectAllReportControls() {
+    setFilters((current) => ({
+      ...current,
+      saleFilters: SALE_FILTER_OPTIONS.map((option) => option.key),
+    }))
+    setSelectedReports(DEFAULT_REPORTS)
+  }
+
+  function clearAllReportControls() {
+    setFilters((current) => ({
+      ...current,
+      saleFilters: [],
+    }))
+    setSelectedReports([])
+  }
+
   function addPdfTable(doc, autoTable, cursor, title, head, body) {
     let startY = cursor
     if (startY > 690) {
@@ -720,9 +736,12 @@ export default function Reports() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-3">
-          <button type="button" onClick={() => setSelectedReports(DEFAULT_REPORTS)} className="px-3 py-2 bg-gray-700 rounded">Marcar todos</button>
-          <button type="button" onClick={() => setSelectedReports([])} className="px-3 py-2 bg-gray-700 rounded">Limpar</button>
+        <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm font-semibold text-gray-200">Blocos do relatório</div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={selectAllReportControls} className="px-3 py-2 bg-gray-700 rounded">Marcar todos</button>
+            <button type="button" onClick={clearAllReportControls} className="px-3 py-2 bg-gray-700 rounded">Limpar</button>
+          </div>
         </div>
 
         <div className="grid gap-2 md:grid-cols-4">
