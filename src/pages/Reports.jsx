@@ -734,11 +734,11 @@ export default function Reports() {
           </div>
 
           <div className="mb-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Filtros de venda</div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Relatórios por venda</div>
+            <div className="grid gap-2 md:grid-cols-4">
               {SALE_FILTER_OPTIONS.map((option) => (
-                <label key={option.key} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] p-2 text-sm text-gray-200">
-                  <input type="checkbox" checked={filters.saleFilters.includes(option.key)} onChange={() => toggleSaleFilter(option.key)} className="h-4 w-4 accent-cyan-300" />
+                <label key={option.key} className="flex items-center gap-2 bg-gray-950/70 rounded p-2 text-sm">
+                  <input type="checkbox" checked={filters.saleFilters.includes(option.key)} onChange={() => toggleSaleFilter(option.key)} />
                   <span>{option.label}</span>
                 </label>
               ))}
