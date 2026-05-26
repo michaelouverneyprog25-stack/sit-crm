@@ -724,33 +724,38 @@ export default function Reports() {
           )}
         </div>
 
-        <div className="mb-4 rounded-lg border border-white/10 bg-gray-900/70 p-3">
-          <div className="mb-2 text-sm font-semibold text-gray-200">Filtros de venda</div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            {SALE_FILTER_OPTIONS.map((option) => (
-              <label key={option.key} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] p-2 text-sm text-gray-200">
-                <input type="checkbox" checked={filters.saleFilters.includes(option.key)} onChange={() => toggleSaleFilter(option.key)} className="h-4 w-4 accent-cyan-300" />
-                <span>{option.label}</span>
-              </label>
-            ))}
+        <div className="rounded-lg border border-white/10 bg-gray-900/70 p-3">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm font-semibold text-gray-200">Blocos do relatório</div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={selectAllReportControls} className="px-3 py-2 bg-gray-700 rounded">Marcar todos</button>
+              <button type="button" onClick={clearAllReportControls} className="px-3 py-2 bg-gray-700 rounded">Limpar</button>
+            </div>
           </div>
-        </div>
 
-        <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm font-semibold text-gray-200">Blocos do relatório</div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={selectAllReportControls} className="px-3 py-2 bg-gray-700 rounded">Marcar todos</button>
-            <button type="button" onClick={clearAllReportControls} className="px-3 py-2 bg-gray-700 rounded">Limpar</button>
+          <div className="mb-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Filtros de venda</div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              {SALE_FILTER_OPTIONS.map((option) => (
+                <label key={option.key} className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] p-2 text-sm text-gray-200">
+                  <input type="checkbox" checked={filters.saleFilters.includes(option.key)} onChange={() => toggleSaleFilter(option.key)} className="h-4 w-4 accent-cyan-300" />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="grid gap-2 md:grid-cols-4">
-          {REPORT_OPTIONS.map((option) => (
-            <label key={option.key} className="flex items-center gap-2 bg-gray-900 rounded p-2 text-sm">
-              <input type="checkbox" checked={selectedReports.includes(option.key)} onChange={() => toggleReport(option.key)} />
-              <span>{option.label}</span>
-            </label>
-          ))}
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Relatórios</div>
+            <div className="grid gap-2 md:grid-cols-4">
+              {REPORT_OPTIONS.map((option) => (
+                <label key={option.key} className="flex items-center gap-2 bg-gray-950/70 rounded p-2 text-sm">
+                  <input type="checkbox" checked={selectedReports.includes(option.key)} onChange={() => toggleReport(option.key)} />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
