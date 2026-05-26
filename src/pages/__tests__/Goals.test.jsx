@@ -51,8 +51,8 @@ describe('Goals page filters', () => {
 
     expect(await screen.findByLabelText('Loja')).toBeInTheDocument()
     expect(screen.getByLabelText('Vendedor')).toBeInTheDocument()
-    expect(screen.getByLabelText('Grupo')).toBeInTheDocument()
-    expect(screen.getByLabelText('Serviços')).toBeInTheDocument()
+    expect(screen.getByLabelText('Grupo Econômico')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Serviços')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument()
 
     await waitFor(() => {
@@ -62,7 +62,7 @@ describe('Goals page filters', () => {
     })
   })
 
-  it('loads store goals and only filters visible service rows on screen', async () => {
+  it('loads store goals and keeps all service rows visible without service filter', async () => {
     render(<Goals />)
 
     fireEvent.change(await screen.findByLabelText('Loja'), { target: { value: 'Loja Centro' } })
@@ -81,11 +81,9 @@ describe('Goals page filters', () => {
       expect(within(fibraRow).getAllByText(/\b\d{1,2}\b/).length).toBeGreaterThan(0)
     })
 
-    fireEvent.change(screen.getByLabelText('Serviços'), { target: { value: 'Fibra' } })
-
     const table = screen.getByRole('table')
     expect(within(table).getByText('Fibra')).toBeInTheDocument()
-    expect(within(table).queryByText('Receita Total')).not.toBeInTheDocument()
+    expect(within(table).getByText('Receita Total')).toBeInTheDocument()
   })
 
   it('keeps executive users limited to their own goal filters', async () => {
@@ -104,7 +102,7 @@ describe('Goals page filters', () => {
 
     expect(await screen.findByLabelText('Vendedor')).toHaveValue('Bia Executiva')
     expect(screen.queryByLabelText('Loja')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Grupo')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Serviços')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Grupo Econômico')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Serviços')).not.toBeInTheDocument()
   })
 })

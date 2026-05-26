@@ -333,7 +333,6 @@ export default function Goals() {
   const { currentUser } = useAuth()
   const [period, setPeriod] = useState(defaultPeriod)
   const [rows, setRows] = useState(emptyRows)
-  const [serviceFilter, setServiceFilter] = useState('')
   const [users, setUsers] = useState([])
   const [stores, setStores] = useState([])
   const [loading, setLoading] = useState(false)
@@ -782,10 +781,7 @@ export default function Goals() {
     }
   }
 
-  const visibleRows = useMemo(() => {
-    if (!serviceFilter) return rows
-    return rows.filter((row) => row.type === serviceFilter)
-  }, [rows, serviceFilter])
+  const visibleRows = rows
 
   const totals = useMemo(() => {
     return visibleRows.reduce((acc, row) => {
@@ -899,7 +895,7 @@ export default function Goals() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-white">Filtro da planilha</h2>
-                <p className="text-sm text-slate-400">Escolha o período, a visão e filtre serviços sem remover metas salvas.</p>
+                <p className="text-sm text-slate-400">Escolha o período e a visão das metas.</p>
               </div>
             </div>
             <div className="grid gap-3 md:grid-cols-4">
@@ -911,13 +907,22 @@ export default function Goals() {
                 <span>Ano</span>
                 <input name="year" type="number" value={period.year} onChange={changePeriod} className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300" />
               </label>
-              {isSeller ? (
-                <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
-                  <span>Vendedor</span>
-                  <input value={period.userName || currentUser?.name || 'Usuário'} disabled className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-slate-300 opacity-80" />
-                </label>
-              ) : (
-                <>
+              <div className="md:col-span-4 rounded-lg border border-white/10 bg-slate-950/55 p-3">
+                <div className="grid gap-3 md:grid-cols-3">
+                  {canSelectGroup && (
+                    <label className="flex flex-col gap-1 text-sm text-slate-300">
+                      <span>Grupo Econômico</span>
+                      <select
+                        name="groupName"
+                        value={period.scope === 'group' ? period.groupName : ''}
+                        onChange={changePeriod}
+                        className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
+                      >
+                        <option value="">Todos / selecione</option>
+                        <option value={ECONOMIC_GROUP_NAME}>{ECONOMIC_GROUP_NAME}</option>
+                      </select>
+                    </label>
+                  )}
                   {canSelectStore && (
                     <label className="flex flex-col gap-1 text-sm text-slate-300">
                       <span>Loja</span>
@@ -932,7 +937,12 @@ export default function Goals() {
                       </select>
                     </label>
                   )}
-                  {canSelectSeller && (
+                  {isSeller ? (
+                    <label className="flex flex-col gap-1 text-sm text-slate-300">
+                      <span>Vendedor</span>
+                      <input value={period.userName || currentUser?.name || 'Usuário'} disabled className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-slate-300 opacity-80" />
+                    </label>
+                  ) : canSelectSeller && (
                     <label className="flex flex-col gap-1 text-sm text-slate-300">
                       <span>Vendedor</span>
                       <select
@@ -946,36 +956,8 @@ export default function Goals() {
                       </select>
                     </label>
                   )}
-                </>
-              )}
-              {canSelectGroup && (
-                <label className="flex flex-col gap-1 text-sm text-slate-300">
-                  <span>Grupo</span>
-                  <select
-                    name="groupName"
-                    value={period.scope === 'group' ? period.groupName : ''}
-                    onChange={changePeriod}
-                    className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
-                  >
-                    <option value="">Todos / selecione</option>
-                    <option value={ECONOMIC_GROUP_NAME}>{ECONOMIC_GROUP_NAME}</option>
-                  </select>
-                </label>
-              )}
-              <label className="flex flex-col gap-1 text-sm text-slate-300">
-                <span>Serviços</span>
-                <select
-                  value={serviceFilter}
-                  onChange={(event) => setServiceFilter(event.target.value)}
-                  className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
-                >
-                  <option value="">Todos os serviços</option>
-                  {SERVICES.filter((service) => service !== 'Gross').map((service) => (
-                    <option key={service} value={service}>{service}</option>
-                  ))}
-                  <option value="Gross">Gross</option>
-                </select>
-              </label>
+                </div>
+              </div>
               {!isSeller && period.scope === 'store' && (
                 <>
                   <label className="flex flex-col gap-1 text-sm text-slate-300">
