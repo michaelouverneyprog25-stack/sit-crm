@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sit-lumx-v1'
+const CACHE_NAME = 'sit-lumx-v2'
 const APP_SHELL = [
   '/',
   '/offline.html',
