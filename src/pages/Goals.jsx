@@ -1231,21 +1231,21 @@ export default function Goals() {
                   </span>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1540px] border-separate border-spacing-0">
-                  <thead className="bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400">
+              <div className="overflow-hidden">
+                <table className="w-full table-fixed border-separate border-spacing-0">
+                  <thead className="bg-slate-950 text-left text-[10px] uppercase tracking-wide text-slate-400">
                     <tr>
-                      <th className="w-48 px-4 py-3">Serviço</th>
-                      <th className="min-w-[180px] px-4 py-3">Meta</th>
-                      <th className="min-w-[160px] px-4 py-3">Realizado</th>
-                      <th className="min-w-[150px] px-4 py-3">Gap</th>
-                      <th className="min-w-[120px] px-4 py-3">%</th>
-                      <th className="min-w-[150px] px-4 py-3">Projeção</th>
-                      <th className="min-w-[150px] px-4 py-3">Média atual</th>
-                      <th className="min-w-[150px] px-4 py-3">Necessário/dia</th>
-                      <th className="min-w-[120px] px-4 py-3">Dias úteis</th>
-                      <th className="min-w-[120px] px-4 py-3">Restante</th>
-                      <th className="min-w-[220px] px-4 py-3">Evolução</th>
+                      <th className="w-[10%] px-2 py-2">Serviço</th>
+                      <th className="w-[12%] px-2 py-2">Meta</th>
+                      <th className="w-[9%] px-2 py-2">Realizado</th>
+                      <th className="w-[8%] px-2 py-2">Gap</th>
+                      <th className="w-[6%] px-2 py-2">%</th>
+                      <th className="w-[9%] px-2 py-2">Projeção</th>
+                      <th className="w-[9%] px-2 py-2">Média atual</th>
+                      <th className="w-[9%] px-2 py-2">Meta dia</th>
+                      <th className="w-[7%] px-2 py-2">Dias úteis</th>
+                      <th className="w-[7%] px-2 py-2">Restante</th>
+                      <th className="w-[14%] px-2 py-2">Evolução</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
@@ -1256,46 +1256,46 @@ export default function Goals() {
                       const progressTextColor = getAchievementTextColor(row.current, row.target)
                       return (
                         <tr key={row.type} className="transition hover:bg-white/[0.03]">
-                          <td className="px-4 py-3">
-                            <div className="font-semibold text-white">{row.type}</div>
+                          <td className="px-2 py-2">
+                            <div className="break-words text-xs font-semibold text-white">{row.type}</div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-2 py-2">
                             {period.scope === 'store' ? (
-                              <div className="h-10 min-w-[150px] whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-slate-300">
+                              <div className="h-9 w-full overflow-hidden rounded-md border border-white/10 bg-white/5 px-2 py-2 text-xs text-slate-300">
                                 {formatGoalValue(row.type, row.target)}
                               </div>
                             ) : (
-                              <div className="flex min-w-[150px] flex-nowrap items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3">
-                                {MONEY_SERVICES.has(row.type) && <span className="shrink-0 whitespace-nowrap text-sm text-slate-400">R$</span>}
+                              <div className="flex w-full flex-nowrap items-center gap-1 rounded-md border border-white/10 bg-slate-800 px-2">
+                                {MONEY_SERVICES.has(row.type) && <span className="shrink-0 whitespace-nowrap text-xs text-slate-400">R$</span>}
                                 <input
                                   type="text"
                                   inputMode="decimal"
                                   value={row.targetValue}
                                   onChange={(e) => changeRow(row.type, 'targetValue', e.target.value)}
-                                  className="h-11 min-w-0 flex-1 whitespace-nowrap bg-transparent text-white outline-none"
+                                  className="h-9 min-w-0 flex-1 bg-transparent text-xs text-white outline-none"
                                 />
                               </div>
                             )}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-200">{formatGoalValue(row.type, row.current)}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.gapValue)}</td>
-                          <td className={`whitespace-nowrap px-4 py-3 text-sm font-semibold ${progressTextColor}`}>{formatPercent(achievement)}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">{formatGoalValue(row.type, row.projectedValue)}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.dailyAverage)}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.neededPerDay)}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{row.businessDays || '-'}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{row.remainingDays || 0}</td>
-                          <td className="px-4 py-3">
-                            <div className="min-w-[190px]">
-                              <div className="mb-1.5 flex items-center justify-between gap-3">
-                                <span className="text-xs font-semibold text-slate-300">
+                          <td className="break-words px-2 py-2 text-xs font-medium text-slate-200">{formatGoalValue(row.type, row.current)}</td>
+                          <td className="break-words px-2 py-2 text-xs text-slate-300">{formatGoalValue(row.type, row.gapValue)}</td>
+                          <td className={`break-words px-2 py-2 text-xs font-semibold ${progressTextColor}`}>{formatPercent(achievement)}</td>
+                          <td className="break-words px-2 py-2 text-xs font-semibold text-white">{formatGoalValue(row.type, row.projectedValue)}</td>
+                          <td className="break-words px-2 py-2 text-xs text-slate-300">{formatGoalValue(row.type, row.dailyAverage)}</td>
+                          <td className="break-words px-2 py-2 text-xs text-slate-300">{formatGoalValue(row.type, row.neededPerDay)}</td>
+                          <td className="break-words px-2 py-2 text-xs text-slate-300">{row.businessDays || '-'}</td>
+                          <td className="break-words px-2 py-2 text-xs text-slate-300">{row.remainingDays || 0}</td>
+                          <td className="px-2 py-2">
+                            <div className="min-w-0">
+                              <div className="mb-1 flex items-center justify-between gap-1">
+                                <span className="truncate text-[10px] font-semibold text-slate-300">
                                   {getStatusLabel(row.status)}
                                 </span>
-                                <span className={`text-xs font-semibold ${progressTextColor}`}>
+                                <span className={`shrink-0 text-[10px] font-semibold ${progressTextColor}`}>
                                   {formatPercent(achievement)}
                                 </span>
                               </div>
-                              <div className="h-2.5 overflow-hidden rounded-full bg-slate-800">
+                              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                                 <div className={`h-full rounded-full ${progressColor}`} style={{ width: `${Math.min(100, progress)}%` }} />
                               </div>
                             </div>
