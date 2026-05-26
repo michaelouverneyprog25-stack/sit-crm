@@ -374,7 +374,6 @@ export default function Goals() {
   const [success, setSuccess] = useState('')
   const [activeTab, setActiveTab] = useState('sheet')
   const [distributeStoreGoals, setDistributeStoreGoals] = useState(true)
-  const [serviceFilter, setServiceFilter] = useState('')
 
   const currentUserRole = normalizeRole(currentUser?.role)
   const isSeller = SELLER_GOAL_ROLES.includes(currentUserRole)
@@ -401,6 +400,7 @@ export default function Goals() {
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
   const storeNames = useMemo(() => {
     const byName = new Map()
+    byName.set(normalizeText(ECONOMIC_GROUP_NAME), ECONOMIC_GROUP_NAME)
     stores.forEach((store) => {
       if (period.localName && normalizeText(getStoreLocalName(store)) !== normalizeText(period.localName)) return
       const name = getStoreName(store)
@@ -659,6 +659,20 @@ export default function Goals() {
       return
     }
     if (name === 'storeName') {
+      if (normalizeText(value) === normalizeText(ECONOMIC_GROUP_NAME)) {
+        setPeriod((current) => ({
+          ...current,
+          scope: 'group',
+          storeName: '',
+          localName: '',
+          groupName: ECONOMIC_GROUP_NAME,
+          storeCity: '',
+          storeState: '',
+          userId: '',
+          userName: '',
+        }))
+        return
+      }
       const savedStore = stores.find((store) => normalizeText(store.name) === normalizeText(value))
       const userFromStore = users.find((user) => normalizeText(user.storeName || user.store || user.loja) === normalizeText(value))
       setPeriod((current) => ({
@@ -831,10 +845,7 @@ export default function Goals() {
     }
   }
 
-  const visibleRows = useMemo(() => {
-    if (!serviceFilter) return rows
-    return rows.filter((row) => row.type === serviceFilter)
-  }, [rows, serviceFilter])
+  const visibleRows = rows
 
   const totals = useMemo(() => {
     return visibleRows.reduce((acc, row) => {
@@ -971,7 +982,7 @@ export default function Goals() {
                   <span>Loja</span>
                   <select
                     name="storeName"
-                    value={period.scope === 'store' ? period.storeName : ''}
+                    value={period.scope === 'group' ? ECONOMIC_GROUP_NAME : period.scope === 'store' ? period.storeName : ''}
                     onChange={changePeriod}
                     className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
                   >
@@ -999,17 +1010,6 @@ export default function Goals() {
                   </select>
                 </label>
               )}
-              <label className="flex flex-col gap-1 text-sm text-slate-300 md:col-span-2">
-                <span>Serviço/Produto</span>
-                <select
-                  value={serviceFilter}
-                  onChange={(e) => setServiceFilter(e.target.value)}
-                  className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300"
-                >
-                  <option value="">Todos os serviços</option>
-                  {SERVICES.map((service) => <option key={service} value={service}>{service}</option>)}
-                </select>
-              </label>
               <label className="flex flex-col gap-1 text-sm text-slate-300">
                 <span>Mês</span>
                 <input name="month" type="number" min="1" max="12" value={period.month} onChange={changePeriod} className="h-11 rounded-md border border-white/10 bg-slate-800 px-3 text-white outline-none transition focus:border-cyan-300" />

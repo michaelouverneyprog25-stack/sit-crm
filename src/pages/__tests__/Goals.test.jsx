@@ -54,12 +54,13 @@ describe('Goals page filters', () => {
     expect(await screen.findByLabelText('Local')).toBeInTheDocument()
     expect(screen.getByLabelText('Loja')).toBeInTheDocument()
     expect(screen.getByLabelText('Vendedor')).toBeInTheDocument()
-    expect(screen.getByText('Serviço/Produto')).toBeInTheDocument()
+    expect(screen.queryByText('Serviço/Produto')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Grupo Econômico')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument()
 
     await waitFor(() => {
       expect(within(screen.getByLabelText('Local')).getByRole('option', { name: 'São Paulo / SP' })).toBeInTheDocument()
+      expect(within(screen.getByLabelText('Loja')).getByRole('option', { name: 'INTERCELL' })).toBeInTheDocument()
       expect(within(screen.getByLabelText('Loja')).getByRole('option', { name: 'Loja Centro' })).toBeInTheDocument()
       expect(within(screen.getByLabelText('Vendedor')).getByRole('option', { name: 'Ana Vendedora' })).toBeInTheDocument()
       expect(within(screen.getByLabelText('Vendedor')).getByRole('option', { name: 'Bia Executiva' })).toBeInTheDocument()
@@ -68,6 +69,7 @@ describe('Goals page filters', () => {
     fireEvent.change(screen.getByLabelText('Local'), { target: { value: 'São Paulo / SP' } })
 
     await waitFor(() => {
+      expect(within(screen.getByLabelText('Loja')).getByRole('option', { name: 'INTERCELL' })).toBeInTheDocument()
       expect(within(screen.getByLabelText('Loja')).getByRole('option', { name: 'Loja Centro' })).toBeInTheDocument()
       expect(within(screen.getByLabelText('Loja')).queryByRole('option', { name: 'Loja Rio' })).not.toBeInTheDocument()
       expect(within(screen.getByLabelText('Vendedor')).queryByRole('option', { name: 'Carla Rio' })).not.toBeInTheDocument()
@@ -97,10 +99,17 @@ describe('Goals page filters', () => {
     const table = screen.getByRole('table')
     expect(within(table).getByText('Fibra')).toBeInTheDocument()
     expect(within(table).getByText('Receita Total')).toBeInTheDocument()
+  })
 
-    fireEvent.change(screen.getByDisplayValue('Todos os serviços'), { target: { value: 'Fibra' } })
-    expect(within(table).getByText('Fibra')).toBeInTheDocument()
-    expect(within(table).queryByText('Receita Total')).not.toBeInTheDocument()
+  it('loads INTERCELL from the store selector as the economic group total', async () => {
+    render(<Goals />)
+
+    fireEvent.change(await screen.findByLabelText('Loja'), { target: { value: 'INTERCELL' } })
+
+    await waitFor(() => {
+      expect(getGoalsMock).toHaveBeenCalledWith(expect.objectContaining({ groupName: 'INTERCELL' }))
+      expect(screen.getByRole('table')).toBeInTheDocument()
+    })
   })
 
   it('keeps executive users limited to their own goal filters', async () => {
@@ -121,6 +130,6 @@ describe('Goals page filters', () => {
     expect(screen.queryByLabelText('Local')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Loja')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Grupo Econômico')).not.toBeInTheDocument()
-    expect(screen.getByText('Serviço/Produto')).toBeInTheDocument()
+    expect(screen.queryByText('Serviço/Produto')).not.toBeInTheDocument()
   })
 })
