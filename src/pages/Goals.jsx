@@ -3,18 +3,19 @@ import { addGoal, clearStoreGoalDistribution, distributeStoreGoals as distribute
 import { useAuth } from '../contexts/AuthContext'
 
 const SERVICES = [
-  'Acessórios',
-  'Aparelhos',
-  'Controle',
-  'DACC',
-  'Fibra',
-  'Gross',
-  'PayJoy',
-  'Portabilidade',
   'Pós',
-  'Receita Total',
-  'Seguros',
+  'Controle',
+  'Fibra',
   'Upgrade',
+  'Receita Total',
+  'Gross',
+  'Portabilidade',
+  'Aparelhos',
+  'Acessórios',
+  'DACC',
+  'Seguros',
+  'PayJoy',
+  'Dependentes',
 ]
 const MONEY_SERVICES = new Set(['Receita Total', 'Aparelhos', 'Acessórios', 'PayJoy', 'Seguros', 'DACC'])
 const SELLER_GOAL_ROLES = ['Vendedor', 'Executivo']
@@ -791,11 +792,19 @@ export default function Goals() {
     const averagePercent = withTarget.length
       ? Math.round(withTarget.reduce((sum, row) => sum + row.projectedPercent, 0) / withTarget.length)
       : 0
+    const projectedValue = projectionRows.reduce((sum, row) => sum + Number(row.projectedValue || 0), 0)
+    const neededPerDay = projectionRows.reduce((sum, row) => sum + Number(row.neededPerDay || 0), 0)
+    const businessDays = projectionRows.find((row) => row.businessDays > 0)?.businessDays || 0
+    const remainingDays = projectionRows.find((row) => row.businessDays > 0)?.remainingDays || 0
 
     return {
       total: withTarget.length,
       projectedHit,
       averagePercent,
+      projectedValue,
+      neededPerDay,
+      businessDays,
+      remainingDays,
     }
   }, [projectionRows])
 
@@ -838,7 +847,7 @@ export default function Goals() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-white">Filtro da planilha</h2>
-                <p className="text-sm text-slate-400">Escolha o período e o nível da meta.</p>
+                <p className="text-sm text-slate-400">Escolha o período, a visão e filtre serviços sem remover metas salvas.</p>
               </div>
             </div>
             <div className="grid gap-3 md:grid-cols-4">
@@ -952,6 +961,14 @@ export default function Goals() {
               <div className="min-w-0 rounded-lg border border-white/10 bg-white/5 p-3">
                 <p className="text-sm text-slate-400">Realizado / Gap</p>
                 <p className="mt-1 break-words text-lg font-semibold text-white">{formatValue(totals.current)} / {formatValue(totals.gap)}</p>
+              </div>
+              <div className="min-w-0 rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="text-sm text-slate-400">Projeção / Necessário dia</p>
+                <p className="mt-1 break-words text-lg font-semibold text-white">{formatValue(projectionSummary.projectedValue)} / {formatValue(projectionSummary.neededPerDay)}</p>
+              </div>
+              <div className="min-w-0 rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="text-sm text-slate-400">Dias úteis / Restantes</p>
+                <p className="mt-1 break-words text-lg font-semibold text-white">{projectionSummary.businessDays || '-'} / {projectionSummary.remainingDays || 0}</p>
               </div>
             </div>
           </div>
@@ -1107,25 +1124,42 @@ export default function Goals() {
             </form>
           ) : activeTab === 'sheet' ? (
             <form onSubmit={saveSpreadsheet} className="overflow-hidden rounded-xl border border-white/10 bg-slate-900">
+              <div className="border-b border-white/10 p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">Planilha completa de metas</h2>
+                    <p className="text-sm text-slate-400">
+                      Visão ampla com meta, realizado, gap, percentual, projeção, médias e dias úteis na mesma tabela.
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-sm font-semibold text-cyan-100">
+                    Projeção média {projectionSummary.averagePercent}%
+                  </span>
+                </div>
+              </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1080px] border-separate border-spacing-0">
+                <table className="w-full min-w-[1540px] border-separate border-spacing-0">
                   <thead className="bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400">
                     <tr>
-                      <th className="w-56 px-4 py-3">Serviço</th>
-                      <th className="min-w-[190px] px-4 py-3">Meta</th>
-                      <th className="min-w-[165px] px-4 py-3">Meta semanal</th>
-                      <th className="min-w-[160px] px-4 py-3">Meta diária</th>
-                      <th className="min-w-[180px] px-4 py-3">Realizado</th>
-                      <th className="min-w-[170px] px-4 py-3">Gap</th>
-                      <th className="w-52 px-4 py-3">Status</th>
+                      <th className="w-48 px-4 py-3">Serviço</th>
+                      <th className="min-w-[180px] px-4 py-3">Meta</th>
+                      <th className="min-w-[160px] px-4 py-3">Realizado</th>
+                      <th className="min-w-[150px] px-4 py-3">Gap</th>
+                      <th className="min-w-[120px] px-4 py-3">%</th>
+                      <th className="min-w-[150px] px-4 py-3">Projeção</th>
+                      <th className="min-w-[150px] px-4 py-3">Média atual</th>
+                      <th className="min-w-[150px] px-4 py-3">Necessário/dia</th>
+                      <th className="min-w-[120px] px-4 py-3">Dias úteis</th>
+                      <th className="min-w-[120px] px-4 py-3">Restante</th>
+                      <th className="min-w-[220px] px-4 py-3">Evolução</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
-                    {visibleRows.map((row) => {
-                      const progress = getProgressPercent(row.currentValue, row.targetValue)
-                      const achievement = getAchievementPercent(row.currentValue, row.targetValue)
-                      const progressColor = getAchievementColor(row.currentValue, row.targetValue)
-                      const progressTextColor = getAchievementTextColor(row.currentValue, row.targetValue)
+                    {projectionRows.map((row) => {
+                      const progress = getProgressPercent(row.current, row.target)
+                      const achievement = getAchievementPercent(row.current, row.target)
+                      const progressColor = getAchievementColor(row.current, row.target)
+                      const progressTextColor = getAchievementTextColor(row.current, row.target)
                       return (
                         <tr key={row.type} className="transition hover:bg-white/[0.03]">
                           <td className="px-4 py-3">
@@ -1133,11 +1167,11 @@ export default function Goals() {
                           </td>
                           <td className="px-4 py-3">
                             {period.scope === 'store' ? (
-                              <div className="h-11 min-w-[165px] whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-slate-300">
-                                {formatGoalValue(row.type, row.targetValue)}
+                              <div className="h-10 min-w-[150px] whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-slate-300">
+                                {formatGoalValue(row.type, row.target)}
                               </div>
                             ) : (
-                              <div className="flex min-w-[165px] flex-nowrap items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3">
+                              <div className="flex min-w-[150px] flex-nowrap items-center gap-2 rounded-lg border border-white/10 bg-slate-800 px-3">
                                 {MONEY_SERVICES.has(row.type) && <span className="shrink-0 whitespace-nowrap text-sm text-slate-400">R$</span>}
                                 <input
                                   type="text"
@@ -1149,34 +1183,22 @@ export default function Goals() {
                               </div>
                             )}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.weeklyTarget)}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.dailyTarget)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-200">{formatGoalValue(row.type, row.current)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.gapValue)}</td>
+                          <td className={`whitespace-nowrap px-4 py-3 text-sm font-semibold ${progressTextColor}`}>{formatPercent(achievement)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-white">{formatGoalValue(row.type, row.projectedValue)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.dailyAverage)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatGoalValue(row.type, row.neededPerDay)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{row.businessDays || '-'}</td>
+                          <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{row.remainingDays || 0}</td>
                           <td className="px-4 py-3">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={formatGoalValue(row.type, row.currentValue)}
-                              disabled
-                              className="h-11 min-w-[160px] whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 text-slate-300 opacity-90"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={formatGoalValue(row.type, row.gapValue)}
-                              disabled
-                              className="h-11 min-w-[150px] whitespace-nowrap rounded-lg border border-white/10 bg-white/5 px-3 text-slate-300 opacity-90"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="min-w-40">
+                            <div className="min-w-[190px]">
                               <div className="mb-1.5 flex items-center justify-between gap-3">
-                                <span className={`text-sm font-semibold ${progressTextColor}`}>
-                                  {formatPercent(achievement)}
-                                </span>
                                 <span className="text-xs font-semibold text-slate-300">
                                   {getStatusLabel(row.status)}
+                                </span>
+                                <span className={`text-xs font-semibold ${progressTextColor}`}>
+                                  {formatPercent(achievement)}
                                 </span>
                               </div>
                               <div className="h-2.5 overflow-hidden rounded-full bg-slate-800">

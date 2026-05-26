@@ -72,6 +72,11 @@ describe('Goals page filters', () => {
       const table = screen.getByRole('table')
       expect(within(table).getByText('Receita Total')).toBeInTheDocument()
       expect(within(table).getByText('Fibra')).toBeInTheDocument()
+      expect(within(table).getByText('Dependentes')).toBeInTheDocument()
+      expect(within(table).getByRole('columnheader', { name: 'Projeção' })).toBeInTheDocument()
+      expect(within(table).getByRole('columnheader', { name: 'Média atual' })).toBeInTheDocument()
+      expect(within(table).getByRole('columnheader', { name: 'Dias úteis' })).toBeInTheDocument()
+      expect(within(table).getByRole('columnheader', { name: 'Restante' })).toBeInTheDocument()
     })
 
     fireEvent.change(screen.getByLabelText('Serviços'), { target: { value: 'Fibra' } })
